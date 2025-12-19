@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "rork-app",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -15,7 +15,13 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.rork.cryptolingo-app"
+      "bundleIdentifier": "app.rork.cryptolingo-app",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
+        "NSUserNotificationsUsageDescription": "Receba lembretes personalizados para manter sua sequência de estudos e não perder suas conquistas!"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -44,13 +50,11 @@
       [
         "expo-notifications",
         {
-          "icon": "./local/assets/notification_icon.png",
-          "color": "#ffffff",
+          "icon": "./assets/images/icon.png",
+          "color": "#6366F1",
           "defaultChannel": "default",
-          "sounds": [
-            "./local/assets/notification_sound.wav"
-          ],
-          "enableBackgroundRemoteNotifications": false
+          "sounds": [],
+          "enableBackgroundRemoteNotifications": true
         }
       ]
     ],
