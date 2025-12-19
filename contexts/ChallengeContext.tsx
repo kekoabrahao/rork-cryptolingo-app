@@ -54,6 +54,7 @@ interface ChallengeContextValue {
   completeChallenge: (challengeId: string, score: number, perfect: boolean) => void;
   startChallenge: (challengeId: string) => void;
   updateChallengeProgress: (challengeId: string, current: number) => void;
+  getChallengeById: (challengeId: string) => Challenge | undefined;
   getRapidFireQuestions: (difficulty: ChallengeDifficulty, count: number) => typeof rapidFireQuestions;
   getVocabularyMatches: (count: number) => typeof vocabularyMatches;
   getScenarioChallenges: (difficulty: ChallengeDifficulty, count: number) => typeof scenarioChallenges;
@@ -406,6 +407,10 @@ export function ChallengeProvider({ children }: { children: ReactNode }) {
     return shuffled.slice(0, count);
   }, []);
 
+  const getChallengeById = useCallback((challengeId: string) => {
+    return challenges.find(c => c.id === challengeId);
+  }, [challenges]);
+
   const getVocabularyMatches = useCallback((count: number) => {
     const shuffled = [...vocabularyMatches].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, count);
@@ -432,6 +437,7 @@ export function ChallengeProvider({ children }: { children: ReactNode }) {
       completeChallenge,
       startChallenge,
       updateChallengeProgress,
+      getChallengeById,
       getRapidFireQuestions,
       getVocabularyMatches,
       getScenarioChallenges,
@@ -445,6 +451,7 @@ export function ChallengeProvider({ children }: { children: ReactNode }) {
       completeChallenge,
       startChallenge,
       updateChallengeProgress,
+      getChallengeById,
       getRapidFireQuestions,
       getVocabularyMatches,
       getScenarioChallenges,
