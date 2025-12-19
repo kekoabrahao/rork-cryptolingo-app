@@ -302,16 +302,25 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     const { title, body } = getRandomTemplate(type, data);
 
     try {
-      await Notifications.scheduleNotificationAsync({
+      const notificationConfig: Notifications.NotificationRequestInput = {
         content: {
           title,
           body,
           sound: true,
-          priority: Notifications.AndroidNotificationPriority.HIGH,
           data: { type, ...data },
         },
         trigger: null,
-      });
+      };
+
+      // Platform-specific configuration
+      if (Platform.OS === 'android') {
+        notificationConfig.content.priority = Notifications.AndroidNotificationPriority.HIGH;
+      } else if (Platform.OS === 'ios') {
+        notificationConfig.content.sound = 'default';
+        notificationConfig.content.badge = 1;
+      }
+
+      await Notifications.scheduleNotificationAsync(notificationConfig);
 
       console.log('✅ Immediate notification sent');
     } catch (error) {
@@ -343,19 +352,28 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     }
 
     try {
-      const notificationId = await Notifications.scheduleNotificationAsync({
+      const notificationConfig: Notifications.NotificationRequestInput = {
         content: {
           title,
           body,
           sound: true,
-          priority: Notifications.AndroidNotificationPriority.HIGH,
           data: { type, ...data },
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: scheduledTime,
         } as Notifications.DateTriggerInput,
-      });
+      };
+
+      // Platform-specific configuration
+      if (Platform.OS === 'android') {
+        notificationConfig.content.priority = Notifications.AndroidNotificationPriority.HIGH;
+      } else if (Platform.OS === 'ios') {
+        notificationConfig.content.sound = 'default';
+        notificationConfig.content.badge = 1;
+      }
+
+      const notificationId = await Notifications.scheduleNotificationAsync(notificationConfig);
 
       const newNotification: ScheduledNotification = {
         id: notificationId,
