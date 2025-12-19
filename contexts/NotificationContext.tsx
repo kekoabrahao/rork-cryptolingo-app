@@ -3,9 +3,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState, useCallback } from "react";
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { UserBehavior, NotificationSettings, ScheduledNotification } from "@/types/notification";
 import { getRandomTemplate } from "@/data/notification-templates";
 import { analytics } from "@/utils/analytics";
+
+// Check if running in Expo Go (notifications don't work in Expo Go since SDK 53)
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
 
 const BEHAVIOR_STORAGE_KEY = "@cryptolingo_user_behavior";
 const SETTINGS_STORAGE_KEY = "@cryptolingo_notification_settings";
@@ -55,6 +59,15 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
 
   const initializeNotifications = async () => {
     try {
+      // Skip notification initialization in Expo Go
+      if (IS_EXPO_GO) {
+        console.warn('⚠️ Notifications disabled in Expo Go. Use a development build to test notifications.');
+        console.warn('📖 See EXPO_GO_LIMITATIONS.md for more information');
+        setIsLoading(false);
+        setHasPermission(false);
+        return;
+      }
+
       await loadSettings();
       await loadBehavior();
       await loadScheduledNotifications();
@@ -292,6 +305,11 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     type: string,
     data?: Record<string, any>
   ) => {
+    if (IS_EXPO_GO) {
+      console.log('⚠️ Skipping notification in Expo Go:', type);
+      return;
+    }
+
     if (!settings.enabled || !hasPermission) return;
 
     if (Platform.OS === 'web') {
@@ -324,6 +342,11 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     data?: Record<string, any>,
     customTime?: Date
   ) => {
+    if (IS_EXPO_GO) {
+      console.log('⚠️ Skipping notification in Expo Go:', type);
+      return;
+    }
+
     if (!settings.enabled || !hasPermission) {
       console.log('Notifications disabled or no permission');
       return;
