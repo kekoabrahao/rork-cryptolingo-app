@@ -30,6 +30,11 @@ type AnalyticsEvent =
   | 'ad_shown'
   | 'ad_clicked'
   | 'ad_closed'
+  | 'quiz_started'
+  | 'quiz_completed'
+  | 'quiz_question_answered'
+  | 'quiz_perfect_score'
+  | 'quiz_badge_unlocked'
   | 'data_validation_error'
   | 'storage_read_error'
   | 'storage_write_error'
@@ -317,6 +322,59 @@ class Analytics {
       field_name: fieldName,
       component,
       fallback_used: fallbackUsed,
+    });
+  }
+
+  // Quiz Analytics
+  trackQuizStarted(newsId: string, quizId: string) {
+    this.track('quiz_started', {
+      news_id: newsId,
+      quiz_id: quizId,
+      timestamp: Date.now(),
+    });
+  }
+
+  trackQuizCompleted(
+    newsId: string,
+    score: number,
+    xpEarned: number,
+    isPerfect: boolean
+  ) {
+    this.track('quiz_completed', {
+      news_id: newsId,
+      score,
+      xp_earned: xpEarned,
+      is_perfect: isPerfect,
+      timestamp: Date.now(),
+    });
+
+    if (isPerfect) {
+      this.track('quiz_perfect_score', {
+        news_id: newsId,
+        xp_earned: xpEarned,
+      });
+    }
+  }
+
+  trackQuizQuestionAnswered(
+    questionId: string,
+    isCorrect: boolean,
+    timeSpent: number,
+    category: string
+  ) {
+    this.track('quiz_question_answered', {
+      question_id: questionId,
+      is_correct: isCorrect,
+      time_spent: timeSpent,
+      category,
+    });
+  }
+
+  trackQuizBadgeUnlocked(badgeId: string, badgeName: string) {
+    this.track('quiz_badge_unlocked', {
+      badge_id: badgeId,
+      badge_name: badgeName,
+      timestamp: Date.now(),
     });
   }
 }
