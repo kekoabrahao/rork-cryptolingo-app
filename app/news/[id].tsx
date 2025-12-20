@@ -24,12 +24,16 @@ import {
   XCircle,
   Flame,
   Award,
+  Brain,
 } from 'lucide-react-native';
 import { useNews } from '@/contexts/NewsContext';
 import { useUserProgress } from '@/contexts/UserProgressContext';
+import { useQuiz } from '@/contexts/QuizContext';
 import Colors from '@/constants/colors';
 import { useEffect, useState } from 'react';
 import * as Haptics from 'expo-haptics';
+import QuizModal from '@/components/QuizModal';
+import { generateQuizFromArticle } from '@/utils/quizGenerator';
 
 export default function NewsDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -44,6 +48,7 @@ export default function NewsDetailScreen() {
     isBookmarked,
   } = useNews();
   const { newsProgress } = useNews();
+  const { stats: quizStats } = useQuiz();
   useUserProgress();
   
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -52,6 +57,9 @@ export default function NewsDetailScreen() {
   const [quizStartTime, setQuizStartTime] = useState<number | null>(null);
   const [answerAnimation] = useState(new Animated.Value(0));
   const [streakAnimation] = useState(new Animated.Value(0));
+  const [showQuizModal, setShowQuizModal] = useState(false);
+  const [generatedQuiz, setGeneratedQuiz] = useState<ReturnType<typeof generateQuizFromArticle> | null>(null);
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   
   const article = getArticleById(id);
   const isRead = isArticleRead(id);
@@ -73,6 +81,38 @@ export default function NewsDetailScreen() {
       return () => clearTimeout(timer);
     }
   }, [article, isRead, id, markAsRead]);
+
+  // Generate quiz when article is loaded
+  useEffect(() => {
+    if (article && !generatedQuiz) {
+      const quiz = generateQuizFromArticle(article);
+      setGeneratedQuiz(quiz);
+      console.log('🧠 Quiz generated for article');
+    }
+  }, [article, generatedQuiz]);
+
+  const handleScroll = (event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const isBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - 50;
+    
+    if (isBottom && !hasScrolledToBottom && generatedQuiz && !quizDone) {
+      setHasScrolledToBottom(true);
+      // Show quiz modal after 1 second of reaching bottom
+      setTimeout(() => {
+        setShowQuizModal(true);
+      }, 1000);
+    }
+  };
+
+  const handleQuizComplete = (xpEarned: number) => {
+    console.log(`🎉 Quiz completed! +${xpEarned} XP earned`);
+    // Mark as completed in old system too
+    completeQuiz(id, true, 0);
+  };
+
+  const handleQuizClose = () => {
+    setShowQuizModal(false);
+  };
 
   if (!article) {
     return (
@@ -228,6 +268,8 @@ export default function NewsDetailScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={400}
         >
           <View style={styles.headerSection}>
             <View style={styles.metaRow}>
@@ -580,8 +622,64 @@ export default function NewsDetailScreen() {
             </LinearGradient>
           </View>
 
+          {!quizDone && generatedQuiz && (
+            <View style={styles.quizPromptSection}>
+              <View style={styles.quizPromptCard}>
+                <Brain size={48} color={Colors.primary} />
+                <Text style={styles.quizPromptTitle}>Teste seu conhecimento! 🧠</Text>
+                <Text style={styles.quizPromptText}>
+                  Responda 3 perguntas sobre esta notícia e ganhe até +15 XP
+                </Text>
+                <TouchableOpacity
+                  style={styles.quizPromptButton}
+                  onPress={() => setShowQuizModal(true)}
+                >
+                  <LinearGradient
+                    colors={[Colors.primary, Colors.accent]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.quizPromptGradient}
+                  >
+                    <Text style={styles.quizPromptButtonText}>Começar Quiz</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                {quizStats.currentStreak > 0 && (
+                  <View style={styles.streakBadge}>
+                    <Flame size={16} color={Colors.warning} />
+                    <Text style={styles.streakText}>
+                      Streak: {quizStats.currentStreak} {quizStats.currentStreak === 1 ? 'quiz' : 'quizzes'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
+          {quizDone && (
+            <View style={styles.quizCompletedSection}>
+              <View style={styles.quizCompletedCard}>
+                <CheckCircle size={32} color={Colors.success} />
+                <Text style={styles.quizCompletedTitle}>Quiz Concluído! ✅</Text>
+                <Text style={styles.quizCompletedText}>
+                  Você já completou o quiz desta notícia
+                </Text>
+              </View>
+            </View>
+          )}
+
           <View style={styles.bottomPadding} />
         </ScrollView>
+
+        {/* Quiz Modal */}
+        {generatedQuiz && (
+          <QuizModal
+            visible={showQuizModal}
+            quiz={generatedQuiz}
+            newsId={id}
+            onClose={handleQuizClose}
+            onComplete={handleQuizComplete}
+          />
+        )}
       </View>
     </>
   );
@@ -1022,5 +1120,88 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600' as const,
     color: '#FF6B35',
+  },
+  quizPromptSection: {
+    paddingHorizontal: 20,
+    paddingTop: 32,
+  },
+  quizPromptCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 2,
+    borderColor: Colors.primary + '30',
+  },
+  quizPromptTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    textAlign: 'center',
+  },
+  quizPromptText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  quizPromptButton: {
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  quizPromptGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+  },
+  quizPromptButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#FFFFFF',
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.warning + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  streakText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.warning,
+  },
+  quizCompletedSection: {
+    paddingHorizontal: 20,
+    paddingTop: 32,
+  },
+  quizCompletedCard: {
+    backgroundColor: Colors.success + '15',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 2,
+    borderColor: Colors.success + '50',
+  },
+  quizCompletedTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.success,
+  },
+  quizCompletedText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
 });

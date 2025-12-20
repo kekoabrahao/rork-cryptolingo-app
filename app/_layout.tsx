@@ -11,6 +11,7 @@ import { NotificationContext } from "@/contexts/NotificationContext";
 import { DuelContext } from "@/contexts/DuelContext";
 import { SubscriptionContext } from "@/contexts/SubscriptionContext";
 import { NewsContext } from "@/contexts/NewsContext";
+import { QuizContext } from "@/contexts/QuizContext";
 import { ChallengeProvider } from "@/contexts/ChallengeContext";
 import { AchievementUnlockProvider, useAchievementUnlock } from "@/contexts/AchievementUnlockContext";
 import { trpc, trpcClient } from "@/lib/trpc";
@@ -91,16 +92,18 @@ export default function RootLayout() {
             <SubscriptionContext>
               <NotificationContext>
                 <UserProgressContext>
-                  <AchievementUnlockProvider>
-                    <ChallengeProvider>
-                      <DuelContext>
-                        <NewsContext>
-                          <ModalRenderer />
-                          <RootLayoutNav />
-                        </NewsContext>
-                      </DuelContext>
-                    </ChallengeProvider>
-                  </AchievementUnlockProvider>
+                  <QuizContext>
+                    <AchievementUnlockProvider>
+                      <ChallengeProvider>
+                        <DuelContext>
+                          <NewsContext>
+                            <ModalRenderer />
+                            <RootLayoutNav />
+                          </NewsContext>
+                        </DuelContext>
+                      </ChallengeProvider>
+                    </AchievementUnlockProvider>
+                  </QuizContext>
                 </UserProgressContext>
               </NotificationContext>
             </SubscriptionContext>
