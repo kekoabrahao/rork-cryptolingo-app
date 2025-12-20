@@ -1,12 +1,25 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, Platform, Alert } from "react-native";
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, Platform, Alert, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Bell, BellOff, Clock, Trophy, TrendingUp, Moon, Sun, Send, Trash2 } from "lucide-react-native";
+import { Bell, BellOff, Clock, Trophy, TrendingUp, Moon, Sun, Send, Trash2, AlertTriangle, Zap, Lightbulb, Swords, PauseCircle, PlayCircle } from "lucide-react-native";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useUserProgress } from "@/contexts/UserProgressContext";
 import Colors from "@/constants/colors";
 
 export default function SettingsScreen() {
-  const { settings, updateSettings, hasPermission, requestPermissions, behavior, sendImmediateNotification, scheduleSmartNotifications, cancelAllNotifications, scheduledNotifications } = useNotifications();
+  const { 
+    settings, 
+    updateSettings, 
+    hasPermission, 
+    requestPermissions, 
+    behavior, 
+    sendImmediateNotification, 
+    scheduleSmartNotifications, 
+    cancelAllNotifications, 
+    scheduledNotifications,
+    pauseNotifications,
+    unpauseNotifications,
+    isNotificationsPaused,
+  } = useNotifications();
   const { progress } = useUserProgress();
 
 
@@ -91,6 +104,47 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  const handlePauseNotifications = async () => {
+    if (Platform.OS === 'web') return;
+
+    Alert.alert(
+      'Pausar Notificações',
+      'Por quanto tempo você deseja pausar as notificações?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: '1 Dia',
+          onPress: async () => {
+            await pauseNotifications(1);
+            Alert.alert('Sucesso', 'Notificações pausadas por 1 dia.');
+          },
+        },
+        {
+          text: '3 Dias',
+          onPress: async () => {
+            await pauseNotifications(3);
+            Alert.alert('Sucesso', 'Notificações pausadas por 3 dias.');
+          },
+        },
+        {
+          text: '1 Semana',
+          style: 'destructive',
+          onPress: async () => {
+            await pauseNotifications(7);
+            Alert.alert('Sucesso', 'Notificações pausadas por 1 semana.');
+          },
+        },
+      ]
+    );
+  };
+
+  const handleUnpauseNotifications = async () => {
+    if (Platform.OS === 'web') return;
+
+    await unpauseNotifications();
+    Alert.alert('Sucesso', 'Notificações reativadas!');
   };
 
   return (
@@ -200,6 +254,63 @@ export default function SettingsScreen() {
               />
             </View>
 
+            <View style={[styles.settingRow, styles.settingRowBorder]}>
+              <View style={styles.settingInfo}>
+                <AlertTriangle size={20} color={Colors.danger} />
+                <View style={styles.settingText}>
+                  <Text style={styles.settingLabel}>Alertas Urgentes</Text>
+                  <Text style={styles.settingDescription}>
+                    Movimentos extremos do mercado (&gt;10%)
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={settings.breakingNews}
+                onValueChange={(value) => handleToggle('breakingNews', value)}
+                trackColor={{ false: Colors.border, true: Colors.primary + '50' }}
+                thumbColor={settings.breakingNews ? Colors.primary : Colors.textSecondary}
+                disabled={!settings.enabled}
+              />
+            </View>
+
+            <View style={[styles.settingRow, styles.settingRowBorder]}>
+              <View style={styles.settingInfo}>
+                <Swords size={20} color={Colors.warning} />
+                <View style={styles.settingText}>
+                  <Text style={styles.settingLabel}>Desafios de Duelo</Text>
+                  <Text style={styles.settingDescription}>
+                    Notificações de duelos em tempo real
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={settings.duelChallenges}
+                onValueChange={(value) => handleToggle('duelChallenges', value)}
+                trackColor={{ false: Colors.border, true: Colors.primary + '50' }}
+                thumbColor={settings.duelChallenges ? Colors.primary : Colors.textSecondary}
+                disabled={!settings.enabled}
+              />
+            </View>
+
+            <View style={[styles.settingRow, styles.settingRowBorder]}>
+              <View style={styles.settingInfo}>
+                <Lightbulb size={20} color={Colors.coins} />
+                <View style={styles.settingText}>
+                  <Text style={styles.settingLabel}>Insights Personalizados</Text>
+                  <Text style={styles.settingDescription}>
+                    Progresso semanal e estatísticas
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={settings.personalizedInsights}
+                onValueChange={(value) => handleToggle('personalizedInsights', value)}
+                trackColor={{ false: Colors.border, true: Colors.primary + '50' }}
+                thumbColor={settings.personalizedInsights ? Colors.primary : Colors.textSecondary}
+                disabled={!settings.enabled}
+              />
+            </View>
+
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
                 <Trophy size={20} color={Colors.success} />
@@ -219,6 +330,82 @@ export default function SettingsScreen() {
               />
             </View>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Frequência & Controle</Text>
+          
+          <View style={styles.settingCard}>
+            <View style={styles.frequencyInfo}>
+              <Zap size={20} color={Colors.primary} />
+              <Text style={styles.frequencyText}>
+                Máximo de notificações por dia
+              </Text>
+            </View>
+            
+            <View style={styles.frequencyRow}>
+              <TouchableOpacity 
+                style={[styles.frequencyButton, settings.maxNotificationsPerDay === 1 && styles.frequencyButtonActive]}
+                onPress={() => updateSettings({ ...settings, maxNotificationsPerDay: 1 })}
+              >
+                <Text style={[styles.frequencyButtonText, settings.maxNotificationsPerDay === 1 && styles.frequencyButtonTextActive]}>1</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.frequencyButton, settings.maxNotificationsPerDay === 2 && styles.frequencyButtonActive]}
+                onPress={() => updateSettings({ ...settings, maxNotificationsPerDay: 2 })}
+              >
+                <Text style={[styles.frequencyButtonText, settings.maxNotificationsPerDay === 2 && styles.frequencyButtonTextActive]}>2</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.frequencyButton, settings.maxNotificationsPerDay === 3 && styles.frequencyButtonActive]}
+                onPress={() => updateSettings({ ...settings, maxNotificationsPerDay: 3 })}
+              >
+                <Text style={[styles.frequencyButtonText, settings.maxNotificationsPerDay === 3 && styles.frequencyButtonTextActive]}>3</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.frequencyButton, settings.maxNotificationsPerDay === 5 && styles.frequencyButtonActive]}
+                onPress={() => updateSettings({ ...settings, maxNotificationsPerDay: 5 })}
+              >
+                <Text style={[styles.frequencyButtonText, settings.maxNotificationsPerDay === 5 && styles.frequencyButtonTextActive]}>5</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.frequencyDescription}>
+              Hoje: {behavior.notificationsSentToday}/{settings.maxNotificationsPerDay} enviadas
+            </Text>
+
+            <View style={styles.divider} />
+
+            {isNotificationsPaused() ? (
+              <TouchableOpacity 
+                style={[styles.pauseButton, styles.unpauseButton]}
+                onPress={handleUnpauseNotifications}
+                disabled={Platform.OS === 'web'}
+              >
+                <PlayCircle size={20} color={Colors.success} />
+                <Text style={[styles.pauseButtonText, { color: Colors.success }]}>
+                  Reativar Notificações
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
+                style={styles.pauseButton}
+                onPress={handlePauseNotifications}
+                disabled={Platform.OS === 'web'}
+              >
+                <PauseCircle size={20} color={Colors.warning} />
+                <Text style={styles.pauseButtonText}>
+                  Pausar Notificações
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {settings.pausedUntil && (
+            <Text style={styles.behaviorNote}>
+              ⏸️ Notificações pausadas até {new Date(settings.pausedUntil).toLocaleString('pt-BR')}
+            </Text>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -285,11 +472,32 @@ export default function SettingsScreen() {
                 {behavior.averageSessionLength} min
               </Text>
             </View>
+
+            <View style={styles.divider} />
+            
+            <View style={styles.insightRow}>
+              <Text style={styles.insightLabel}>Notificações Ignoradas</Text>
+              <Text style={styles.insightValue}>
+                {behavior.dismissalCount} ({behavior.consecutiveDismissals} consecutivas)
+              </Text>
+            </View>
           </View>
           
           <Text style={styles.behaviorNote}>
             💡 Usamos esses dados para enviar notificações nos melhores momentos para você!
           </Text>
+
+          {behavior.consecutiveDismissals >= 2 && (
+            <View style={styles.warningCard}>
+              <AlertTriangle size={20} color={Colors.warning} />
+              <Text style={styles.warningText}>
+                Você ignorou {behavior.consecutiveDismissals} notificações consecutivas. 
+                {behavior.consecutiveDismissals >= 3 
+                  ? ' As notificações foram automaticamente pausadas por 1 semana.'
+                  : ' Mais uma e pausaremos as notificações automaticamente.'}
+              </Text>
+            </View>
+          )}
         </View>
 
         {Platform.OS === 'web' && (
@@ -559,5 +767,84 @@ const styles = StyleSheet.create({
   },
   dangerButton: {
     backgroundColor: Colors.danger + "15",
+  },
+  frequencyInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  frequencyText: {
+    fontSize: 14,
+    color: Colors.text,
+  },
+  frequencyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
+  },
+  frequencyButton: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.border,
+  },
+  frequencyButtonActive: {
+    backgroundColor: Colors.primary + "15",
+    borderColor: Colors.primary,
+  },
+  frequencyButtonText: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: Colors.textSecondary,
+  },
+  frequencyButtonTextActive: {
+    color: Colors.primary,
+  },
+  frequencyDescription: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: "center",
+  },
+  pauseButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: Colors.warning + "15",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  unpauseButton: {
+    backgroundColor: Colors.success + "15",
+  },
+  pauseButtonText: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: Colors.warning,
+  },
+  warningCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginTop: 12,
+    backgroundColor: Colors.warning + "10",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.warning + "30",
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.text,
+    lineHeight: 20,
   },
 });

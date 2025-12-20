@@ -90,6 +90,44 @@ export const notificationTemplates: NotificationTemplate[] = [
     ],
     timing: 'immediate',
     priority: 'high'
+  },
+  {
+    type: 'BREAKING_NEWS',
+    templates: [
+      '🚨 URGENTE: {crypto} {direction} {movement}% em 1 hora!',
+      '⚡ ALERTA: Mercado em movimento! {crypto} {direction} {movement}%',
+      '📊 BREAKING: {crypto} registra {direction} histórica de {movement}%!',
+      '🔥 {crypto} explode {movement}%! Entenda o que está acontecendo',
+      '⚠️ Volatilidade extrema: {crypto} {movement}% em minutos!'
+    ],
+    timing: 'immediate',
+    priority: 'high'
+  },
+  {
+    type: 'DUEL_CHALLENGE',
+    templates: [
+      '⚔️ {challenger} te desafiou para um duelo!',
+      '🎯 Novo duelo: {challenger} vs você! Aceitar?',
+      '🔥 {challenger} apostou {bet} moedas! Está pronto?',
+      '⚡ Duelo instantâneo com {challenger}! 3 minutos!',
+      '🏆 {challenger} desafiou você. Mostre quem manda!'
+    ],
+    timing: 'immediate',
+    priority: 'high'
+  },
+  {
+    type: 'PERSONALIZED_INSIGHT',
+    templates: [
+      '📊 Você está a apenas {lessons} lições do Level {level}!',
+      '🎯 Seu progresso semanal: {progress}% - Continue assim!',
+      '⭐ Você é {percentile}% melhor que outros alunos!',
+      '🔥 Sua melhor streak foi {best_streak} dias. Supere isso!',
+      '💡 Você domina {strong_topic} mas pode melhorar em {weak_topic}',
+      '📈 Nas últimas 7 dias você aprendeu {terms_learned} termos novos!',
+      '🏅 Parabéns! {achievements} achievements este mês!'
+    ],
+    timing: 'user_optimal_time',
+    priority: 'low'
   }
 ];
 
@@ -111,6 +149,9 @@ export function getRandomTemplate(type: string, data?: Record<string, any>): { t
     STUDY_REMINDER: 'Hora de Estudar! 📚',
     SOCIAL_COMPETITIVE: 'Ranking Atualizado! 🏆',
     MARKET_NEWS: 'Novidades do Mercado 📊',
+    BREAKING_NEWS: '🚨 ALERTA DE MERCADO',
+    DUEL_CHALLENGE: '⚔️ Desafio de Duelo',
+    PERSONALIZED_INSIGHT: '💡 Seu Progresso',
     REWARDS: 'Recompensa Disponível! 🎁',
     STREAK_DANGER: 'Streak em Risco! 🔥',
     CHALLENGE_AVAILABLE: 'Novo Desafio! 🎯',
