@@ -20,9 +20,13 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   studyReminders: true,
   socialUpdates: true,
   marketNews: false,
+  breakingNews: true,
+  duelChallenges: true,
+  personalizedInsights: true,
   achievements: true,
   quietHoursStart: "22:00",
   quietHoursEnd: "08:00",
+  maxNotificationsPerDay: 3,
 };
 
 const DEFAULT_BEHAVIOR: UserBehavior = {
@@ -33,6 +37,10 @@ const DEFAULT_BEHAVIOR: UserBehavior = {
   totalSessions: 0,
   averageLessonsPerSession: 2,
   responseRate: 0,
+  dismissalCount: 0,
+  consecutiveDismissals: 0,
+  notificationsSentToday: 0,
+  lastNotificationDate: new Date().toISOString().split('T')[0],
 };
 
 Notifications.setNotificationHandler({
@@ -118,8 +126,15 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     const responseSubscription = Notifications.addNotificationResponseReceivedListener((response: Notifications.NotificationResponse) => {
       console.log('Notification response:', response);
       const notificationType = (response.notification.request.content.data?.type as string) || 'unknown';
+      const actionIdentifier = response.actionIdentifier;
+      
+      // Check if notification was dismissed vs opened
+      const wasDismissed = actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER 
+        ? false 
+        : actionIdentifier.includes('dismiss');
+      
       analytics.trackNotificationOpened(notificationType, 0);
-      trackNotificationResponse(response.notification.request.identifier);
+      trackNotificationResponse(response.notification.request.identifier, wasDismissed);
     });
 
     return () => {
@@ -217,10 +232,15 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     });
   }, []);
 
-  const trackNotificationResponse = useCallback((notificationId: string) => {
+  const trackNotificationResponse = useCallback((notificationId: string, wasDismissed: boolean = false) => {
     setScheduledNotifications(prevNotifications => {
       const updated = prevNotifications.map(n => 
-        n.id === notificationId ? { ...n, opened: true } : n
+        n.id === notificationId ? { 
+          ...n, 
+          opened: !wasDismissed, 
+          dismissed: wasDismissed,
+          dismissedAt: wasDismissed ? new Date().toISOString() : undefined 
+        } : n
       );
       
       AsyncStorage.setItem(SCHEDULED_STORAGE_KEY, JSON.stringify(updated)).catch(err =>
@@ -229,17 +249,31 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
       
       const openedCount = updated.filter(n => n.opened).length;
       const sentCount = updated.filter(n => n.sent).length;
+      const dismissedCount = updated.filter(n => n.dismissed).length;
       const newResponseRate = sentCount > 0 ? openedCount / sentCount : 0;
 
       setBehavior(prevBehavior => {
+        const newConsecutiveDismissals = wasDismissed 
+          ? prevBehavior.consecutiveDismissals + 1 
+          : 0;
+
         const newBehavior = {
           ...prevBehavior,
           responseRate: newResponseRate,
+          dismissalCount: dismissedCount,
+          consecutiveDismissals: newConsecutiveDismissals,
+          lastDismissalTime: wasDismissed ? new Date().toISOString() : prevBehavior.lastDismissalTime,
         };
         
         AsyncStorage.setItem(BEHAVIOR_STORAGE_KEY, JSON.stringify(newBehavior)).catch(err =>
           console.error('Failed to save user behavior:', err)
         );
+
+        // Auto-reduce notification frequency if user dismisses 3 times in a row
+        if (newConsecutiveDismissals >= 3) {
+          console.warn('⚠️ User dismissed 3 notifications consecutively. Reducing frequency...');
+          pauseNotifications(7); // Pause for 1 week
+        }
         
         return newBehavior;
       });
@@ -312,6 +346,18 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
 
     if (!settings.enabled || !hasPermission) return;
 
+    // Check if notifications are paused
+    if (isNotificationsPaused()) {
+      console.log('⚠️ Notifications are paused');
+      return;
+    }
+
+    // Check daily limit (except for critical notifications)
+    const criticalTypes = ['BREAKING_NEWS', 'DUEL_CHALLENGE', 'ACHIEVEMENT_UNLOCKED'];
+    if (!criticalTypes.includes(type) && !canSendNotificationToday()) {
+      return;
+    }
+
     if (Platform.OS === 'web') {
       console.log('Immediate notification (web):', type, data);
       return;
@@ -339,12 +385,13 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
       }
 
       await Notifications.scheduleNotificationAsync(notificationConfig);
+      incrementNotificationCount();
 
       console.log('✅ Immediate notification sent');
     } catch (error) {
       console.error('Failed to send immediate notification:', error);
     }
-  }, [settings, hasPermission]);
+  }, [settings, hasPermission, isNotificationsPaused, canSendNotificationToday, incrementNotificationCount]);
 
   const scheduleNotification = useCallback(async (
     type: string,
@@ -361,13 +408,27 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
       return;
     }
 
+    // Check if notifications are paused
+    if (isNotificationsPaused()) {
+      console.log('⚠️ Notifications are paused');
+      return;
+    }
+
+    // Check daily limit (except for critical notifications)
+    const criticalTypes = ['BREAKING_NEWS', 'DUEL_CHALLENGE', 'ACHIEVEMENT_UNLOCKED'];
+    if (!criticalTypes.includes(type) && !canSendNotificationToday()) {
+      return;
+    }
+
     if (Platform.OS === 'web') {
       console.log('Notifications not supported on web');
       return;
     }
 
     const { title, body } = getRandomTemplate(type, data);
-    const scheduledTime = customTime || getOptimalNotificationTime();
+    const scheduledTime = customTime || (settings.customReminderTime 
+      ? new Date(settings.customReminderTime) 
+      : getOptimalNotificationTime());
 
     if (isQuietHours(scheduledTime) && !customTime) {
       console.log('Skipping notification during quiet hours');
@@ -397,6 +458,7 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
       }
 
       const notificationId = await Notifications.scheduleNotificationAsync(notificationConfig);
+      incrementNotificationCount();
 
       const newNotification: ScheduledNotification = {
         id: notificationId,
@@ -415,7 +477,7 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     } catch (error) {
       console.error('Failed to schedule notification:', error);
     }
-  }, [settings, hasPermission, scheduledNotifications, getOptimalNotificationTime, isQuietHours]);
+  }, [settings, hasPermission, scheduledNotifications, getOptimalNotificationTime, isQuietHours, isNotificationsPaused, canSendNotificationToday, incrementNotificationCount]);
 
   const hasStudiedToday = useCallback((): boolean => {
     const today = new Date().toISOString().split('T')[0];
@@ -486,6 +548,68 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     }
   }, [settings.marketNews, sendImmediateNotification]);
 
+  const scheduleBreakingNewsNotification = useCallback(async (
+    crypto: string, 
+    movement: number, 
+    direction: 'subiu' | 'caiu'
+  ) => {
+    if (!settings.breakingNews) return;
+
+    // Breaking news for extreme movements (>10%)
+    const isExtreme = Math.abs(movement) >= 10;
+    if (!isExtreme) return;
+
+    const now = new Date();
+    const hour = now.getHours();
+    const isMarketHours = hour >= 6 && hour <= 22;
+
+    if (isMarketHours || settings.breakingNews) {
+      await sendImmediateNotification('BREAKING_NEWS', { 
+        crypto, 
+        movement: Math.abs(movement), 
+        direction 
+      });
+      console.log('🚨 Breaking news notification sent');
+    }
+  }, [settings.breakingNews, sendImmediateNotification]);
+
+  const scheduleDuelChallengeNotification = useCallback(async (
+    challenger: string, 
+    bet?: number
+  ) => {
+    if (!settings.duelChallenges) return;
+
+    await sendImmediateNotification('DUEL_CHALLENGE', { 
+      challenger, 
+      bet: bet || 100 
+    });
+    console.log('⚔️ Duel challenge notification sent');
+  }, [settings.duelChallenges, sendImmediateNotification]);
+
+  const schedulePersonalizedInsightNotification = useCallback(async (
+    insightData: {
+      lessons?: number;
+      level?: number;
+      progress?: number;
+      percentile?: number;
+      best_streak?: number;
+      strong_topic?: string;
+      weak_topic?: string;
+      terms_learned?: number;
+      achievements?: number;
+    }
+  ) => {
+    if (!settings.personalizedInsights) return;
+
+    const optimalTime = getOptimalNotificationTime('tertiary');
+    const now = new Date();
+    
+    if (optimalTime > now) {
+      await scheduleNotification('PERSONALIZED_INSIGHT', insightData, optimalTime);
+      console.log('💡 Personalized insight notification scheduled');
+    }
+  }, [settings.personalizedInsights, getOptimalNotificationTime, scheduleNotification]);
+
   const scheduleSmartNotifications = useCallback(async (userLevel: number, streak: number, completedToday: boolean) => {
     console.log('🎯 Scheduling smart notifications...');
     console.log(`User Level: ${userLevel}, Streak: ${streak}, Completed Today: ${completedToday}`);
@@ -539,6 +663,85 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     }
   }, []);
 
+  const pauseNotifications = useCallback(async (days: number = 7) => {
+    const pauseUntil = new Date();
+    pauseUntil.setDate(pauseUntil.getDate() + days);
+    
+    const newSettings: NotificationSettings = {
+      ...settings,
+      pausedUntil: pauseUntil.toISOString(),
+    };
+
+    await saveSettings(newSettings);
+    await cancelAllNotifications();
+    
+    console.log(`🔕 Notifications paused until ${pauseUntil.toLocaleString()}`);
+  }, [settings, cancelAllNotifications]);
+
+  const unpauseNotifications = useCallback(async () => {
+    const newSettings: NotificationSettings = {
+      ...settings,
+      pausedUntil: undefined,
+    };
+
+    await saveSettings(newSettings);
+    console.log('🔔 Notifications unpaused');
+  }, [settings]);
+
+  const isNotificationsPaused = useCallback((): boolean => {
+    if (!settings.pausedUntil) return false;
+    
+    const pausedUntil = new Date(settings.pausedUntil);
+    const now = new Date();
+    
+    if (now >= pausedUntil) {
+      // Auto-unpause if time has passed
+      unpauseNotifications();
+      return false;
+    }
+    
+    return true;
+  }, [settings.pausedUntil, unpauseNotifications]);
+
+  const canSendNotificationToday = useCallback((): boolean => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Reset counter if it's a new day
+    if (behavior.lastNotificationDate !== today) {
+      setBehavior(prev => ({
+        ...prev,
+        notificationsSentToday: 0,
+        lastNotificationDate: today,
+      }));
+      return true;
+    }
+    
+    const maxPerDay = settings.maxNotificationsPerDay || 3;
+    const canSend = behavior.notificationsSentToday < maxPerDay;
+    
+    if (!canSend) {
+      console.log(`⚠️ Daily notification limit reached (${maxPerDay})`);
+    }
+    
+    return canSend;
+  }, [behavior.notificationsSentToday, behavior.lastNotificationDate, settings.maxNotificationsPerDay]);
+
+  const incrementNotificationCount = useCallback(() => {
+    setBehavior(prev => {
+      const newBehavior = {
+        ...prev,
+        notificationsSentToday: prev.notificationsSentToday + 1,
+        lastNotificationDate: new Date().toISOString().split('T')[0],
+      };
+      
+      AsyncStorage.setItem(BEHAVIOR_STORAGE_KEY, JSON.stringify(newBehavior)).catch(err =>
+        console.error('Failed to save user behavior:', err)
+      );
+      
+      return newBehavior;
+    });
+  }, []);
+
 
 
   return {
@@ -554,11 +757,17 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     scheduleDailyChallengeNotification,
     sendImmediateNotification,
     cancelAllNotifications,
+    pauseNotifications,
+    unpauseNotifications,
+    isNotificationsPaused,
     requestPermissions,
     scheduleSmartNotifications,
     scheduleSmartStudyReminder,
     scheduleSocialCompetitiveNotification,
     scheduleMarketNewsNotification,
+    scheduleBreakingNewsNotification,
+    scheduleDuelChallengeNotification,
+    schedulePersonalizedInsightNotification,
     hasStudiedToday,
   };
 });
