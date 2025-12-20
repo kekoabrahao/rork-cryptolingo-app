@@ -1,9 +1,11 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, Platform, Alert, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Bell, BellOff, Clock, Trophy, TrendingUp, Moon, Sun, Send, Trash2, AlertTriangle, Zap, Lightbulb, Swords, PauseCircle, PlayCircle } from "lucide-react-native";
+import { Bell, BellOff, Clock, Trophy, TrendingUp, Moon, Sun, Send, Trash2, AlertTriangle, Zap, Lightbulb, Swords, PauseCircle, PlayCircle, Crown, Star } from "lucide-react-native";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useUserProgress } from "@/contexts/UserProgressContext";
+import { usePremium } from "@/contexts/PremiumContext";
 import Colors from "@/constants/colors";
+import UpgradeModal from "@/components/UpgradeModal";
 
 export default function SettingsScreen() {
   const { 
@@ -21,6 +23,7 @@ export default function SettingsScreen() {
     isNotificationsPaused,
   } = useNotifications();
   const { progress } = useUserProgress();
+  const { isPremium, premiumStatus, showUpgradeModal, hideUpgradeModal, isUpgradeModalVisible, restorePurchase } = usePremium();
 
 
   const handleToggle = (key: keyof typeof settings, value: boolean) => {
@@ -155,6 +158,71 @@ export default function SettingsScreen() {
           <Text style={styles.title}>Configurações de Notificação</Text>
           <Text style={styles.subtitle}>Personalize suas notificações</Text>
         </View>
+
+        {/* Premium Status Section */}
+        {isPremium ? (
+          <View style={styles.premiumCard}>
+            <Crown size={28} color="#FFD700" />
+            <View style={styles.premiumContent}>
+              <Text style={styles.premiumTitle}>⭐ Premium Active</Text>
+              <Text style={styles.premiumSubtitle}>
+                Lifetime Access • Purchased {premiumStatus?.purchaseDate ? new Date(premiumStatus.purchaseDate).toLocaleDateString() : 'Unknown'}
+              </Text>
+              <View style={styles.premiumFeatures}>
+                <View style={styles.premiumFeatureRow}>
+                  <Star size={14} color="#FFD700" />
+                  <Text style={styles.premiumFeatureText}>Unlimited Lessons & Challenges</Text>
+                </View>
+                <View style={styles.premiumFeatureRow}>
+                  <Star size={14} color="#FFD700" />
+                  <Text style={styles.premiumFeatureText}>Ad-Free Experience</Text>
+                </View>
+                <View style={styles.premiumFeatureRow}>
+                  <Star size={14} color="#FFD700" />
+                  <Text style={styles.premiumFeatureText}>Advanced Analytics</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity 
+              style={styles.upgradeCard}
+              onPress={() => showUpgradeModal()}
+              activeOpacity={0.85}
+            >
+              <Crown size={28} color="#FFD700" />
+              <View style={styles.upgradeContent}>
+                <Text style={styles.upgradeTitle}>Upgrade to Premium</Text>
+                <Text style={styles.upgradeSubtitle}>
+                  Unlock all features for just R$ 19,99 - One time payment!
+                </Text>
+                <View style={styles.upgradeFeatures}>
+                  <Text style={styles.upgradeFeature}>✓ Unlimited Everything</Text>
+                  <Text style={styles.upgradeFeature}>✓ No Ads</Text>
+                  <Text style={styles.upgradeFeature}>✓ Lifetime Updates</Text>
+                </View>
+              </View>
+              <Text style={styles.upgradeButton}>Upgrade Now →</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.restorePurchaseButton}
+              onPress={async () => {
+                const restored = await restorePurchase({ 
+                  email: progress.email || 'user@example.com',
+                  transactionId: ''
+                });
+                
+                if (restored) {
+                  Alert.alert('Success', 'Premium restored successfully!');
+                }
+              }}
+            >
+              <Text style={styles.restorePurchaseText}>Already purchased? Restore Premium</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         {Platform.OS !== 'web' && !hasPermission && (
           <View style={styles.permissionCard}>
@@ -551,6 +619,12 @@ export default function SettingsScreen() {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
+      
+      {/* Upgrade Modal */}
+      <UpgradeModal 
+        visible={isUpgradeModalVisible}
+        onClose={hideUpgradeModal}
+      />
     </SafeAreaView>
   );
 }
@@ -846,5 +920,88 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.text,
     lineHeight: 20,
+  },
+  premiumCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+  },
+  premiumContent: {
+    flex: 1,
+  },
+  premiumTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFD700',
+    marginBottom: 4,
+  },
+  premiumSubtitle: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginBottom: 12,
+  },
+  premiumFeatures: {
+    gap: 6,
+  },
+  premiumFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  premiumFeatureText: {
+    fontSize: 12,
+    color: Colors.text,
+  },
+  upgradeCard: {
+    backgroundColor: '#7c3aed',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  upgradeContent: {
+    flex: 1,
+  },
+  upgradeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  upgradeSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 12,
+  },
+  upgradeFeatures: {
+    gap: 4,
+  },
+  upgradeFeature: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  upgradeButton: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFD700',
+  },
+  restorePurchaseButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  restorePurchaseText: {
+    fontSize: 14,
+    color: Colors.primary,
+    textDecorationLine: 'underline',
   },
 });

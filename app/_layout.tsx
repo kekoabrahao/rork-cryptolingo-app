@@ -12,6 +12,7 @@ import { DuelContext } from "@/contexts/DuelContext";
 import { SubscriptionContext } from "@/contexts/SubscriptionContext";
 import { NewsContext } from "@/contexts/NewsContext";
 import { QuizContext } from "@/contexts/QuizContext";
+import { PremiumProvider } from "@/contexts/PremiumContext";
 import { ChallengeProvider } from "@/contexts/ChallengeContext";
 import { AchievementUnlockProvider, useAchievementUnlock } from "@/contexts/AchievementUnlockContext";
 import { trpc, trpcClient } from "@/lib/trpc";
@@ -90,22 +91,24 @@ export default function RootLayout() {
         <LanguageContext>
           <AuthContext>
             <SubscriptionContext>
-              <NotificationContext>
-                <UserProgressContext>
-                  <QuizContext>
-                    <AchievementUnlockProvider>
-                      <ChallengeProvider>
-                        <DuelContext>
-                          <NewsContext>
-                            <ModalRenderer />
-                            <RootLayoutNav />
-                          </NewsContext>
-                        </DuelContext>
-                      </ChallengeProvider>
-                    </AchievementUnlockProvider>
-                  </QuizContext>
-                </UserProgressContext>
-              </NotificationContext>
+              <PremiumProvider>
+                <NotificationContext>
+                  <UserProgressContext>
+                    <QuizContext>
+                      <AchievementUnlockProvider>
+                        <ChallengeProvider>
+                          <DuelContext>
+                            <NewsContext>
+                              <ModalRenderer />
+                              <RootLayoutNav />
+                            </NewsContext>
+                          </DuelContext>
+                        </ChallengeProvider>
+                      </AchievementUnlockProvider>
+                    </QuizContext>
+                  </UserProgressContext>
+                </NotificationContext>
+              </PremiumProvider>
             </SubscriptionContext>
           </AuthContext>
         </LanguageContext>
