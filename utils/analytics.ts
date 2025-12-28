@@ -36,10 +36,16 @@ type AnalyticsEvent =
   | 'quiz_perfect_score'
   | 'quiz_badge_unlocked'
   | 'lz_chat_fab_pressed'
+  | 'lz_chat_opened'
+  | 'lz_chat_tab_viewed'
   | 'lz_chat_message_sent'
+  | 'lz_chat_message_received'
+  | 'lz_chat_message_error'
   | 'lz_chat_response_received'
   | 'lz_chat_blocked_by_limit'
   | 'lz_chat_daily_limit_reached'
+  | 'lz_chat_upgrade_prompted'
+  | 'lz_chat_upgrade_modal_opened'
   | 'lz_chat_history_loaded'
   | 'lz_chat_history_saved'
   | 'lz_chat_history_cleared'
@@ -392,6 +398,153 @@ class Analytics {
       badge_name: badgeName,
       timestamp: Date.now(),
     });
+  }
+
+  // LZ Chat Analytics
+  /**
+   * Track when user opens LZ Chat screen
+   */
+  trackLZChatOpened(source: 'tab' | 'fab' | 'banner' | 'upgrade_modal', isPremium: boolean) {
+    this.track('lz_chat_opened', {
+      source,
+      is_premium: isPremium,
+      hour_of_day: new Date().getHours(),
+      day_of_week: new Date().getDay(),
+    });
+  }
+
+  /**
+   * Track when user views LZ Chat tab
+   */
+  trackLZChatTabViewed(isPremium: boolean, questionsRemaining: number) {
+    this.track('lz_chat_tab_viewed', {
+      is_premium: isPremium,
+      questions_remaining: questionsRemaining,
+    });
+  }
+
+  /**
+   * Track when user sends message to LZ
+   */
+  trackLZMessageSent(
+    isPremium: boolean,
+    messageLength: number,
+    questionsRemaining: number,
+    conversationLength: number
+  ) {
+    this.track('lz_chat_message_sent', {
+      is_premium: isPremium,
+      message_length: messageLength,
+      questions_remaining: questionsRemaining,
+      conversation_length: conversationLength,
+      time_of_day: new Date().getHours(),
+    });
+  }
+
+  /**
+   * Track when user receives response from LZ
+   */
+  trackLZMessageReceived(
+    isPremium: boolean,
+    responseLength: number,
+    responseTime: number,
+    questionsRemaining: number
+  ) {
+    this.track('lz_chat_message_received', {
+      is_premium: isPremium,
+      response_length: responseLength,
+      response_time_ms: responseTime,
+      questions_remaining: questionsRemaining,
+    });
+  }
+
+  /**
+   * Track when free user hits daily limit
+   */
+  trackLZDailyLimitReached(questionsAsked: number, source: 'chat_screen' | 'message_send') {
+    this.track('lz_chat_daily_limit_reached', {
+      questions_asked: questionsAsked,
+      source,
+      hour_of_day: new Date().getHours(),
+      day_of_week: new Date().getDay(),
+    });
+  }
+
+  /**
+   * Track when upgrade modal is shown from LZ Chat
+   */
+  trackLZUpgradePrompted(
+    trigger: 'limit_reached' | 'feature_click' | 'banner_tap',
+    questionsAsked: number,
+    conversationLength: number
+  ) {
+    this.track('lz_chat_upgrade_prompted', {
+      trigger,
+      questions_asked: questionsAsked,
+      conversation_length: conversationLength,
+      hour_of_day: new Date().getHours(),
+    });
+  }
+
+  /**
+   * Track when user opens upgrade modal from chat
+   */
+  trackLZUpgradeModalOpened(source: 'limit_screen' | 'banner' | 'settings') {
+    this.track('lz_chat_upgrade_modal_opened', {
+      source,
+    });
+  }
+
+  /**
+   * Track when message sending fails
+   */
+  trackLZMessageError(
+    errorType: 'network' | 'api' | 'rate_limit' | 'unknown',
+    errorMessage: string,
+    isPremium: boolean
+  ) {
+    this.track('lz_chat_message_error', {
+      error_type: errorType,
+      error_message: errorMessage,
+      is_premium: isPremium,
+    });
+  }
+
+  /**
+   * Track when user clears chat history
+   */
+  trackLZHistoryCleared(messageCount: number, wasManual: boolean) {
+    this.track('lz_chat_history_cleared', {
+      message_count: messageCount,
+      was_manual: wasManual,
+    });
+  }
+
+  /**
+   * Track conversation engagement metrics
+   */
+  trackLZConversationMetrics(
+    messageCount: number,
+    avgMessageLength: number,
+    sessionDuration: number,
+    isPremium: boolean
+  ) {
+    this.track('lz_chat_conversation_updated', {
+      message_count: messageCount,
+      avg_message_length: avgMessageLength,
+      session_duration_ms: sessionDuration,
+      is_premium: isPremium,
+      engagement_score: this.calculateEngagementScore(messageCount, sessionDuration),
+    });
+  }
+
+  /**
+   * Calculate engagement score based on messages and time
+   */
+  private calculateEngagementScore(messages: number, duration: number): number {
+    if (duration === 0) return 0;
+    const messagesPerMinute = (messages / duration) * 60000;
+    return Math.min(100, Math.round(messagesPerMinute * 10));
   }
 }
 

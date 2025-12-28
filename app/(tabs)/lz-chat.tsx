@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { MessageCircle, Send, Trash2, X, Crown, Sparkles } from 'lucide-react-native';
 import { useLZChat } from '@/contexts/LZChatContext';
 import { usePremium } from '@/contexts/PremiumContext';
+import { analytics } from '@/utils/analytics';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 
@@ -24,9 +25,16 @@ export default function LZChatScreen() {
   const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
   const [inputText, setInputText] = useState('');
+  const [screenOpenTime] = useState(Date.now());
   
   const { messages, isLoading, questionsRemaining, sendMessage, clearHistory } = useLZChat();
   const { isPremium, showUpgradeModal } = usePremium();
+
+  // Track screen open
+  useEffect(() => {
+    analytics.trackLZChatOpened('tab', isPremium);
+    analytics.trackLZChatTabViewed(isPremium, questionsRemaining);
+  }, []);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -45,12 +53,44 @@ export default function LZChatScreen() {
     }
 
     const userMessage = inputText.trim();
+    const messageStartTime = Date.now();
+    
+    // Track message sent
+    analytics.trackLZMessageSent(
+      isPremium,
+      userMessage.length,
+      questionsRemaining,
+      messages.length
+    );
+    
     setInputText(''); // Clear input immediately
 
     const response = await sendMessage(userMessage);
+    
+    const responseTime = Date.now() - messageStartTime;
 
-    if (!response.success) {
-      if (response.error === 'daily_limit') {
+    if (response.success && response.message) {
+      // Track successful response
+      analytics.trackLZMessageReceived(
+        isPremium,
+        response.message.length,
+        responseTime,
+        response.remaining || questionsRemaining
+      );
+      
+      // Track conversation metrics
+      analytics.trackLZConversationMetrics(
+        messages.length + 2, // +2 for user message and AI response
+        Math.round((userMessage.length + response.message.length) / 2),
+        Date.now() - screenOpenTime,
+        isPremium
+      );
+    } else if (!response.success) {
+      if (response.isLimitReached || response.error?.includes('Limite diário')) {
+        // Track limit reached
+        analytics.trackLZDailyLimitReached(2, 'message_send');
+        analytics.trackLZUpgradePrompted('limit_reached', 2, messages.length);
+        
         Alert.alert(
           '🔒 Limite Diário Atingido',
           'Você atingiu o limite de 2 perguntas gratuitas por dia. Faça upgrade para Premium e tenha perguntas ilimitadas!',
@@ -59,11 +99,18 @@ export default function LZChatScreen() {
             { 
               text: 'Ver Premium', 
               style: 'default',
-              onPress: () => showUpgradeModal('Unlimited LZ Chat')
+              onPress: () => {
+                analytics.trackLZUpgradeModalOpened('limit_screen');
+                showUpgradeModal('Unlimited LZ Chat');
+              }
             }
           ]
         );
       } else {
+        // Track error
+        const errorType = response.error?.includes('conexão') ? 'network' : 'api';
+        analytics.trackLZMessageError(errorType, response.error || 'Unknown error', isPremium);
+        
         Alert.alert(
           'Erro de Conexão',
           'Não foi possível enviar sua mensagem. Verifique sua conexão e tente novamente.',
@@ -74,6 +121,8 @@ export default function LZChatScreen() {
   };
 
   const handleClearHistory = () => {
+    const currentMessageCount = messages.length;
+    
     Alert.alert(
       'Limpar Histórico',
       'Tem certeza que deseja apagar toda a conversa com o LZ?',
@@ -83,6 +132,9 @@ export default function LZChatScreen() {
           text: 'Limpar',
           style: 'destructive',
           onPress: async () => {
+            // Track history cleared
+            analytics.trackLZHistoryCleared(currentMessageCount, true);
+            
             await clearHistory();
             if (Platform.OS !== 'web') {
               await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
