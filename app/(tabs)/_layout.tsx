@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Home, User, Trophy, Settings, Newspaper } from "lucide-react-native";
+import { Home, User, Trophy, Settings, Newspaper, Sparkles } from "lucide-react-native";
 import React from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import Colors from "@/constants/colors";
@@ -52,6 +52,14 @@ export default function TabLayout() {
         options={{
           title: "News",
           tabBarIcon: ({ color }) => <Newspaper color={color} size={24} />,
+        }}
+      />
+      <Tabs.Screen
+        name="lz-chat"
+        options={{
+          title: "Chat LZ",
+          tabBarIcon: ({ color }) => <Sparkles color={color} size={24} />,
+          tabBarActiveTintColor: "#FFD700",
         }}
       />
       <Tabs.Screen
