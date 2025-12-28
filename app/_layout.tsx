@@ -13,6 +13,7 @@ import { SubscriptionContext } from "@/contexts/SubscriptionContext";
 import { NewsContext } from "@/contexts/NewsContext";
 import { QuizContext } from "@/contexts/QuizContext";
 import { PremiumProvider } from "@/contexts/PremiumContext";
+import { LZChatProvider } from "@/contexts/LZChatContext";
 import { ChallengeProvider } from "@/contexts/ChallengeContext";
 import { AchievementUnlockProvider, useAchievementUnlock } from "@/contexts/AchievementUnlockContext";
 import { trpc, trpcClient } from "@/lib/trpc";
@@ -59,6 +60,7 @@ function RootLayoutNav() {
       <Stack.Screen name="duel-result" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="news/[id]" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="challenge/[id]" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="lz-chat" options={{ headerShown: false, presentation: "card" }} />
     </Stack>
   );
 }
@@ -92,22 +94,24 @@ export default function RootLayout() {
           <AuthContext>
             <SubscriptionContext>
               <PremiumProvider>
-                <NotificationContext>
-                  <UserProgressContext>
-                    <QuizContext>
-                      <AchievementUnlockProvider>
-                        <ChallengeProvider>
-                          <DuelContext>
-                            <NewsContext>
-                              <ModalRenderer />
-                              <RootLayoutNav />
-                            </NewsContext>
-                          </DuelContext>
-                        </ChallengeProvider>
-                      </AchievementUnlockProvider>
-                    </QuizContext>
-                  </UserProgressContext>
-                </NotificationContext>
+                <LZChatProvider>
+                  <NotificationContext>
+                    <UserProgressContext>
+                      <QuizContext>
+                        <AchievementUnlockProvider>
+                          <ChallengeProvider>
+                            <DuelContext>
+                              <NewsContext>
+                                <ModalRenderer />
+                                <RootLayoutNav />
+                              </NewsContext>
+                            </DuelContext>
+                          </ChallengeProvider>
+                        </AchievementUnlockProvider>
+                      </QuizContext>
+                    </UserProgressContext>
+                  </NotificationContext>
+                </LZChatProvider>
               </PremiumProvider>
             </SubscriptionContext>
           </AuthContext>
