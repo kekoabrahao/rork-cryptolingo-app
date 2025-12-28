@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import LZChatService, { ChatMessage, SendMessageResponse } from '@/services/LZChatService';
+import { LZChatService } from '@/services/LZChatServiceAdapter';
+import type { ChatMessage, SendMessageResponse } from '@/services/LZChatServiceAdapter';
 import { usePremium } from '@/contexts/PremiumContext';
 import { Analytics } from '@/utils/analytics';
 
@@ -46,7 +47,7 @@ export const LZChatProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (isPremium) {
       setQuestionsRemaining(999);
     } else {
-      const { remaining } = await LZChatService.checkDailyLimit(false);
+      const { remaining } = await LZChatService.checkDailyLimit('current_user', false);
       setQuestionsRemaining(remaining);
     }
   };
@@ -55,45 +56,22 @@ export const LZChatProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setIsLoading(true);
     
     try {
-      // Add user message immediately
-      const userMessage: ChatMessage = {
-        id: Date.now().toString(),
-        sender: 'user',
-        text: text,
-        timestamp: Date.now()
-      };
+      // Send to AI via tRPC adapter
+      const response = await LZChatService.sendMessage(text, isPremium, 'current_user');
 
-      const updatedMessages = [...messages, userMessage];
-      setMessages(updatedMessages);
-      await LZChatService.saveChatHistory(updatedMessages);
-
-      // Send to AI and get response
-      const response = await LZChatService.sendMessage(text, messages, isPremium);
-
-      if (response.success && response.message) {
-        // Add LZ's response
-        const lzMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          sender: 'lz',
-          text: response.message,
-          timestamp: Date.now()
-        };
-
-        const finalMessages = [...updatedMessages, lzMessage];
-        setMessages(finalMessages);
-        await LZChatService.saveChatHistory(finalMessages);
-        
-        // Update remaining questions
+      // Reload history from storage (service handles saving)
+      await loadHistory();
+      
+      // Update remaining questions
+      if (response.remaining !== undefined) {
         setQuestionsRemaining(response.remaining);
-
-        Analytics.track('lz_chat_conversation_updated', {
-          total_messages: finalMessages.length,
-          is_premium: isPremium
-        });
-      } else {
-        // Handle error - remove user message if failed
-        setMessages(messages);
       }
+
+      Analytics.track('lz_chat_conversation_updated', {
+        success: response.success,
+        is_premium: isPremium,
+        remaining: response.remaining
+      });
 
       return response;
 
