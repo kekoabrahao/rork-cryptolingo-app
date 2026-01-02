@@ -31,6 +31,7 @@ type AnalyticsEvent =
   | 'purchase_initiated'
   | 'purchase_completed'
   | 'purchase_failed'
+  | 'purchase_error'
   | 'restore_purchase_initiated'
   | 'restore_purchase_success'
   | 'restore_purchase_failed'
