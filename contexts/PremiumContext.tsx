@@ -4,19 +4,18 @@ import { Platform, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { 
   PremiumStatus, 
-  PurchaseRequest, 
+  PaymentData, 
   PurchaseResponse,
   RestorePurchaseRequest,
-  PREMIUM_STORAGE_KEY,
-  PREMIUM_PRICE
+  STORAGE_KEYS
 } from '@/types/premium';
-import { Analytics } from '@/utils/analytics';
+import { analytics } from '@/utils/analytics';
 
 interface PremiumContextType {
   isPremium: boolean;
   premiumStatus: PremiumStatus | null;
   isLoading: boolean;
-  purchasePremium: (request: PurchaseRequest) => Promise<PurchaseResponse>;
+  purchasePremium: (request: PaymentData) => Promise<PurchaseResponse>;
   restorePurchase: (request: RestorePurchaseRequest) => Promise<boolean>;
   checkPremiumStatus: () => Promise<void>;
   showUpgradeModal: () => void;
@@ -42,7 +41,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
   const loadPremiumStatus = async () => {
     try {
       setIsLoading(true);
-      const storedStatus = await AsyncStorage.getItem(PREMIUM_STORAGE_KEY);
+      const storedStatus = await AsyncStorage.getItem(STORAGE_KEYS.PREMIUM_STATUS);
       
       if (storedStatus) {
         const status: PremiumStatus = JSON.parse(storedStatus);
@@ -54,7 +53,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
     } catch (error) {
       console.error('Failed to load premium status:', error);
-      Analytics.trackError('premium_status_load_failed', error as Error);
+      analytics.track('data_validation_error', { error: String(error) });
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +66,6 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: status.userId,
           transactionId: status.transactionId
         })
       });
@@ -76,15 +74,15 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
       
       if (!data.isValid && status.isPremium) {
         // Premium status invalidated - clear local data
-        await AsyncStorage.removeItem(PREMIUM_STORAGE_KEY);
+        await AsyncStorage.removeItem(STORAGE_KEYS.PREMIUM_STATUS);
         setIsPremium(false);
         setPremiumStatus(null);
-        Analytics.track('premium_status_invalidated', { reason: data.reason });
+        analytics.track('premium_feature_attempted', { reason: data.reason });
       }
     } catch (error) {
       console.error('Backend validation failed:', error);
       // Don't remove local status on network errors - just log
-      Analytics.trackError('premium_validation_failed', error as Error);
+      analytics.track('data_validation_error', { error: String(error) });
     }
   };
 
@@ -92,9 +90,9 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
     await loadPremiumStatus();
   };
 
-  const purchasePremium = async (request: PurchaseRequest): Promise<PurchaseResponse> => {
+  const purchasePremium = async (request: PaymentData): Promise<PurchaseResponse> => {
     try {
-      Analytics.track('purchase_initiated', {
+      analytics.track('paywall_converted', {
         payment_method: request.paymentMethod,
         payment_gateway: request.paymentGateway,
         amount: request.amount,
@@ -112,7 +110,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (data.success && data.premiumStatus) {
         // Save premium status locally
-        await AsyncStorage.setItem(PREMIUM_STORAGE_KEY, JSON.stringify(data.premiumStatus));
+        await AsyncStorage.setItem(STORAGE_KEYS.PREMIUM_STATUS, JSON.stringify(data.premiumStatus));
         setPremiumStatus(data.premiumStatus);
         setIsPremium(true);
         
@@ -122,7 +120,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
 
         // Track successful purchase
-        Analytics.track('purchase_completed', {
+        analytics.track('paywall_converted', {
           transaction_id: data.premiumStatus.transactionId,
           payment_method: request.paymentMethod,
           payment_gateway: request.paymentGateway,
@@ -140,7 +138,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
         setIsUpgradeModalVisible(false);
       } else {
         // Track failed purchase
-        Analytics.track('purchase_failed', {
+        analytics.track('paywall_dismissed', {
           payment_method: request.paymentMethod,
           error: data.error || 'Unknown error'
         });
@@ -155,7 +153,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
       return data;
     } catch (error) {
       console.error('Purchase error:', error);
-      Analytics.trackError('purchase_error', error as Error);
+      analytics.track('data_validation_error', { error: String(error) });
       
       Alert.alert(
         'Connection Error',
@@ -172,7 +170,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const restorePurchase = async (request: RestorePurchaseRequest): Promise<boolean> => {
     try {
-      Analytics.track('restore_purchase_initiated', { email: request.email });
+      analytics.track('restore_purchases_attempted', { email: request.email });
 
       // TODO: Replace with actual backend endpoint
       const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/premium/restore`, {
@@ -185,7 +183,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (data.success && data.premiumStatus) {
         // Restore premium status locally
-        await AsyncStorage.setItem(PREMIUM_STORAGE_KEY, JSON.stringify(data.premiumStatus));
+        await AsyncStorage.setItem(STORAGE_KEYS.PREMIUM_STATUS, JSON.stringify(data.premiumStatus));
         setPremiumStatus(data.premiumStatus);
         setIsPremium(true);
 
@@ -194,7 +192,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
 
-        Analytics.track('restore_purchase_success', {
+        analytics.track('restore_purchases_attempted', {
           transaction_id: data.premiumStatus.transactionId
         });
 
@@ -206,7 +204,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         return true;
       } else {
-        Analytics.track('restore_purchase_failed', { error: data.error });
+        analytics.track('restore_purchases_attempted', { error: data.error });
         
         Alert.alert(
           'Restore Failed',
@@ -218,7 +216,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
     } catch (error) {
       console.error('Restore purchase error:', error);
-      Analytics.trackError('restore_purchase_error', error as Error);
+      analytics.track('data_validation_error', { error: String(error) });
       
       Alert.alert(
         'Connection Error',
@@ -230,16 +228,15 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
-  const showUpgradeModal = (reason?: string) => {
-    setFeatureLockReason(reason);
+  const showUpgradeModal = () => {
     setIsUpgradeModalVisible(true);
-    Analytics.track('upgrade_modal_shown', { reason });
+    analytics.track('paywall_shown', {});
   };
 
   const hideUpgradeModal = () => {
     setIsUpgradeModalVisible(false);
     setFeatureLockReason(undefined);
-    Analytics.track('upgrade_modal_dismissed');
+    analytics.track('paywall_dismissed', {});
   };
 
   return (

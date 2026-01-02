@@ -30,7 +30,7 @@ interface QuizModalProps {
 
 export default function QuizModal({ visible, quiz, newsId, onClose, onComplete }: QuizModalProps) {
   const { submitQuizAttempt } = useQuiz();
-  const { addXP } = useUserProgress();
+  useUserProgress();
   
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<QuizAnswer[]>([]);
@@ -136,9 +136,6 @@ export default function QuizModal({ visible, quiz, newsId, onClose, onComplete }
       timeSpent: totalTimeSpent,
       completedAt: new Date().toISOString(),
     });
-
-    // Add XP to user progress
-    addXP(attempt.xpEarned);
 
     setIsComplete(true);
     onComplete(attempt.xpEarned);

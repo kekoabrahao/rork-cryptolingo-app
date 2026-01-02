@@ -1,12 +1,12 @@
 // Quiz Generator for CryptoLingo News Articles
 import { NewsQuiz, QuizQuestion, ArticleAnalysis, QuizGenerationConfig, DEFAULT_QUIZ_CONFIG } from '@/types/quiz';
-import { NewsItem } from '@/types/news';
+import { NewsArticle } from '@/types/news';
 
 /**
  * Generates a quiz from a news article using text analysis
  */
 export function generateQuizFromArticle(
-  article: NewsItem,
+  article: NewsArticle,
   config: QuizGenerationConfig = DEFAULT_QUIZ_CONFIG
 ): NewsQuiz {
   // Analyze article content
@@ -27,7 +27,7 @@ export function generateQuizFromArticle(
 /**
  * Analyzes article content to extract entities, sentiment, and key facts
  */
-function analyzeArticleContent(article: NewsItem): ArticleAnalysis {
+function analyzeArticleContent(article: NewsArticle): ArticleAnalysis {
   const content = `${article.title} ${article.content}`.toLowerCase();
   
   // Extract prices (e.g., $50,000, 50k, 50000)
@@ -81,7 +81,7 @@ function analyzeArticleContent(article: NewsItem): ArticleAnalysis {
  * Generates quiz questions based on article analysis
  */
 function generateQuestions(
-  article: NewsItem,
+  article: NewsArticle,
   analysis: ArticleAnalysis,
   config: QuizGenerationConfig
 ): QuizQuestion[] {
@@ -112,7 +112,7 @@ function generateQuestions(
 /**
  * Generates a sentiment analysis question
  */
-function generateSentimentQuestion(article: NewsItem, analysis: ArticleAnalysis): QuizQuestion {
+function generateSentimentQuestion(article: NewsArticle, analysis: ArticleAnalysis): QuizQuestion {
   const correctSentiment = analysis.sentiment;
   const sentimentOptions = ['bullish', 'bearish', 'neutral'];
   
@@ -140,7 +140,7 @@ function generateSentimentQuestion(article: NewsItem, analysis: ArticleAnalysis)
 /**
  * Generates a price-related question
  */
-function generatePriceQuestion(article: NewsItem, analysis: ArticleAnalysis): QuizQuestion {
+function generatePriceQuestion(article: NewsArticle, analysis: ArticleAnalysis): QuizQuestion {
   const mainPrice = analysis.prices[0];
   const distractors = generatePriceDistractors(mainPrice.value);
   
@@ -169,7 +169,7 @@ function generatePriceQuestion(article: NewsItem, analysis: ArticleAnalysis): Qu
 /**
  * Generates an entity-related question
  */
-function generateEntityQuestion(article: NewsItem, analysis: ArticleAnalysis): QuizQuestion {
+function generateEntityQuestion(article: NewsArticle, analysis: ArticleAnalysis): QuizQuestion {
   const mainEntity = analysis.entities[0];
   const entityType = mainEntity.type === 'crypto' ? 'criptomoeda' : 'entidade';
   
@@ -202,7 +202,7 @@ function generateEntityQuestion(article: NewsItem, analysis: ArticleAnalysis): Q
 /**
  * Generates an organization-related question
  */
-function generateOrganizationQuestion(article: NewsItem, analysis: ArticleAnalysis): QuizQuestion {
+function generateOrganizationQuestion(article: NewsArticle, analysis: ArticleAnalysis): QuizQuestion {
   const mainOrg = analysis.organizations[0];
   const allOrgs = ['SEC', 'BlackRock', 'Coinbase', 'Binance', 'Federal Reserve'];
   const distractors = allOrgs.filter(org => org !== mainOrg).slice(0, 3);
@@ -232,7 +232,7 @@ function generateOrganizationQuestion(article: NewsItem, analysis: ArticleAnalys
 /**
  * Generates a fact-based question
  */
-function generateFactQuestion(article: NewsItem, analysis: ArticleAnalysis): QuizQuestion {
+function generateFactQuestion(article: NewsArticle, analysis: ArticleAnalysis): QuizQuestion {
   const facts = [
     'A notícia fala sobre aprovação de ETF',
     'A notícia menciona regulamentação',
@@ -258,7 +258,7 @@ function generateFactQuestion(article: NewsItem, analysis: ArticleAnalysis): Qui
 /**
  * Generates a concept-based question
  */
-function generateConceptQuestion(article: NewsItem, analysis: ArticleAnalysis): QuizQuestion {
+function generateConceptQuestion(article: NewsArticle, analysis: ArticleAnalysis): QuizQuestion {
   const concepts = [
     { concept: 'DeFi', desc: 'Finanças Descentralizadas' },
     { concept: 'NFT', desc: 'Token Não Fungível' },

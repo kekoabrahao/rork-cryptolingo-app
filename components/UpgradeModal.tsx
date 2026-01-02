@@ -20,7 +20,7 @@ import * as Haptics from 'expo-haptics';
 const { width, height } = Dimensions.get('window');
 
 export default function UpgradeModal() {
-  const { showUpgradeModal, closeUpgradeModal, purchasePremium } = usePremium();
+  const { isUpgradeModalVisible, hideUpgradeModal, purchasePremium } = usePremium();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handlePurchase = async () => {
@@ -42,7 +42,7 @@ export default function UpgradeModal() {
 
       if (result.success) {
         // Success animation here
-        closeUpgradeModal();
+        hideUpgradeModal();
       }
     } finally {
       setIsProcessing(false);
@@ -50,10 +50,10 @@ export default function UpgradeModal() {
   };
 
   return (
-    <Modal visible={showUpgradeModal} animationType="slide" transparent>
+    <Modal visible={isUpgradeModalVisible} animationType="slide" transparent>
       <View style={styles.overlay}>
         <View style={styles.container}>
-          <TouchableOpacity style={styles.closeButton} onPress={closeUpgradeModal}>
+          <TouchableOpacity style={styles.closeButton} onPress={hideUpgradeModal}>
             <X size={24} color={Colors.text} />
           </TouchableOpacity>
 

@@ -199,7 +199,7 @@ export const [QuizContext, useQuiz] = createContextHook(() => {
       
       // Track badge unlock
       newBadges.forEach(badge => {
-        analytics.trackAchievementUnlocked(badge.id, badge.name);
+        analytics.trackQuizBadgeUnlocked(badge.id, badge.name);
       });
     }
 

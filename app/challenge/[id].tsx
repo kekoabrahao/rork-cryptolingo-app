@@ -167,19 +167,19 @@ export default function ChallengeDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📝 Requirements</Text>
             <View style={styles.requirementsCard}>
-              {challenge.requirement.lessons && (
+              {challenge.requirement.minLevel && (
                 <View style={styles.requirementRow}>
                   <Target size={16} color={Colors.primary} />
                   <Text style={styles.requirementText}>
-                    Complete {challenge.requirement.lessons} lessons
+                    Minimum level: {challenge.requirement.minLevel}
                   </Text>
                 </View>
               )}
-              {challenge.requirement.perfectLessons && (
+              {challenge.requirement.perfectAnswers && (
                 <View style={styles.requirementRow}>
                   <Target size={16} color={Colors.primary} />
                   <Text style={styles.requirementText}>
-                    Get {challenge.requirement.perfectLessons} perfect scores
+                    Get {challenge.requirement.perfectAnswers} perfect answers
                   </Text>
                 </View>
               )}
@@ -191,11 +191,11 @@ export default function ChallengeDetailScreen() {
                   </Text>
                 </View>
               )}
-              {challenge.requirement.differentModules && (
+              {challenge.requirement.specificModules && challenge.requirement.specificModules.length > 0 && (
                 <View style={styles.requirementRow}>
                   <TrendingUp size={16} color={Colors.primary} />
                   <Text style={styles.requirementText}>
-                    Study {challenge.requirement.differentModules} different modules
+                    Complete modules: {challenge.requirement.specificModules.join(', ')}
                   </Text>
                 </View>
               )}

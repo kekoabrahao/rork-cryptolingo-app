@@ -210,7 +210,7 @@ export default function SettingsScreen() {
               style={styles.restorePurchaseButton}
               onPress={async () => {
                 const restored = await restorePurchase({ 
-                  email: progress.email || 'user@example.com',
+                  email: 'user@example.com',
                   transactionId: ''
                 });
                 
@@ -621,10 +621,7 @@ export default function SettingsScreen() {
       </ScrollView>
       
       {/* Upgrade Modal */}
-      <UpgradeModal 
-        visible={isUpgradeModalVisible}
-        onClose={hideUpgradeModal}
-      />
+      <UpgradeModal />
     </SafeAreaView>
   );
 }
