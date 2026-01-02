@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, Platform, Alert, TextInput } from "react-native";
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, Platform, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Bell, BellOff, Clock, Trophy, TrendingUp, Moon, Sun, Send, Trash2, AlertTriangle, Zap, Lightbulb, Swords, PauseCircle, PlayCircle, Crown, Star } from "lucide-react-native";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -23,7 +23,7 @@ export default function SettingsScreen() {
     isNotificationsPaused,
   } = useNotifications();
   const { progress } = useUserProgress();
-  const { isPremium, premiumStatus, showUpgradeModal, hideUpgradeModal, isUpgradeModalVisible, restorePurchase } = usePremium();
+  const { isPremium, premiumStatus, showUpgradeModal, restorePurchase } = usePremium();
 
 
   const handleToggle = (key: keyof typeof settings, value: boolean) => {
@@ -209,14 +209,7 @@ export default function SettingsScreen() {
             <TouchableOpacity 
               style={styles.restorePurchaseButton}
               onPress={async () => {
-                const restored = await restorePurchase({ 
-                  email: 'user@example.com',
-                  transactionId: ''
-                });
-                
-                if (restored) {
-                  Alert.alert('Success', 'Premium restored successfully!');
-                }
+                await restorePurchase();
               }}
             >
               <Text style={styles.restorePurchaseText}>Already purchased? Restore Premium</Text>

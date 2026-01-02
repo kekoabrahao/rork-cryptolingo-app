@@ -17,6 +17,7 @@ import { ChallengeProvider } from "@/contexts/ChallengeContext";
 import { AchievementUnlockProvider, useAchievementUnlock } from "@/contexts/AchievementUnlockContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 import { analytics } from "@/utils/analytics";
+import { configureRevenueCat } from "@/lib/revenuecat";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,10 +29,21 @@ function ModalRenderer() {
 }
 
 function RootLayoutNav() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const hasNavigated = useRef(false);
+  const revenueCatConfigured = useRef(false);
+
+  useEffect(() => {
+    if (isAuthenticated && user && !revenueCatConfigured.current) {
+      revenueCatConfigured.current = true;
+      configureRevenueCat(user.id).catch((error) => {
+        console.error('Failed to configure RevenueCat:', error);
+        revenueCatConfigured.current = false;
+      });
+    }
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     if (isLoading) return;

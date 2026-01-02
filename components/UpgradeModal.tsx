@@ -13,11 +13,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { X, Check, Crown, Sparkles, Zap } from 'lucide-react-native';
 import { usePremium } from '@/contexts/PremiumContext';
-import { PREMIUM_PRICE, PREMIUM_FEATURES, PREMIUM_TESTIMONIALS } from '@/types/premium';
+import { PREMIUM_PRICE, PREMIUM_FEATURES } from '@/types/premium';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 export default function UpgradeModal() {
   const { isUpgradeModalVisible, hideUpgradeModal, purchasePremium } = usePremium();
@@ -31,17 +31,9 @@ export default function UpgradeModal() {
     setIsProcessing(true);
     
     try {
-      const result = await purchasePremium({
-        userId: 'user_123',
-        email: 'user@example.com',
-        paymentMethod: 'pix',
-        paymentGateway: 'mercado_pago',
-        amount: PREMIUM_PRICE.amount,
-        currency: 'BRL',
-      });
+      const success = await purchasePremium();
 
-      if (result.success) {
-        // Success animation here
+      if (success) {
         hideUpgradeModal();
       }
     } finally {
