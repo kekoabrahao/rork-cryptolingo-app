@@ -232,6 +232,91 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     });
   }, []);
 
+  const pauseNotifications = useCallback(async (days: number = 7) => {
+    const pauseUntil = new Date();
+    pauseUntil.setDate(pauseUntil.getDate() + days);
+    
+    const newSettings: NotificationSettings = {
+      ...settings,
+      pausedUntil: pauseUntil.toISOString(),
+    };
+
+    await saveSettings(newSettings);
+    
+    if (Platform.OS !== 'web') {
+      try {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        await saveScheduledNotifications([]);
+      } catch (error) {
+        console.error('Failed to cancel notifications:', error);
+      }
+    }
+    
+    console.log(`🔕 Notifications paused until ${pauseUntil.toLocaleString()}`);
+  }, [settings]);
+
+  const unpauseNotifications = useCallback(async () => {
+    const newSettings: NotificationSettings = {
+      ...settings,
+      pausedUntil: undefined,
+    };
+
+    await saveSettings(newSettings);
+    console.log('🔔 Notifications unpaused');
+  }, [settings]);
+
+  const isNotificationsPaused = useCallback((): boolean => {
+    if (!settings.pausedUntil) return false;
+    
+    const pausedUntil = new Date(settings.pausedUntil);
+    const now = new Date();
+    
+    if (now >= pausedUntil) {
+      unpauseNotifications();
+      return false;
+    }
+    
+    return true;
+  }, [settings.pausedUntil, unpauseNotifications]);
+
+  const canSendNotificationToday = useCallback((): boolean => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (behavior.lastNotificationDate !== today) {
+      setBehavior(prev => ({
+        ...prev,
+        notificationsSentToday: 0,
+        lastNotificationDate: today,
+      }));
+      return true;
+    }
+    
+    const maxPerDay = settings.maxNotificationsPerDay || 3;
+    const canSend = behavior.notificationsSentToday < maxPerDay;
+    
+    if (!canSend) {
+      console.log(`⚠️ Daily notification limit reached (${maxPerDay})`);
+    }
+    
+    return canSend;
+  }, [behavior.notificationsSentToday, behavior.lastNotificationDate, settings.maxNotificationsPerDay]);
+
+  const incrementNotificationCount = useCallback(() => {
+    setBehavior(prev => {
+      const newBehavior = {
+        ...prev,
+        notificationsSentToday: prev.notificationsSentToday + 1,
+        lastNotificationDate: new Date().toISOString().split('T')[0],
+      };
+      
+      AsyncStorage.setItem(BEHAVIOR_STORAGE_KEY, JSON.stringify(newBehavior)).catch(err =>
+        console.error('Failed to save user behavior:', err)
+      );
+      
+      return newBehavior;
+    });
+  }, []);
+
   const trackNotificationResponse = useCallback((notificationId: string, wasDismissed: boolean = false) => {
     setScheduledNotifications(prevNotifications => {
       const updated = prevNotifications.map(n => 
@@ -269,10 +354,9 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
           console.error('Failed to save user behavior:', err)
         );
 
-        // Auto-reduce notification frequency if user dismisses 3 times in a row
         if (newConsecutiveDismissals >= 3) {
           console.warn('⚠️ User dismissed 3 notifications consecutively. Reducing frequency...');
-          pauseNotifications(7); // Pause for 1 week
+          pauseNotifications(7);
         }
         
         return newBehavior;
@@ -280,7 +364,7 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
       
       return updated;
     });
-  }, []);
+  }, [pauseNotifications]);
 
   const isQuietHours = useCallback((time: Date): boolean => {
     const hour = time.getHours();
@@ -661,85 +745,6 @@ export const [NotificationContext, useNotifications] = createContextHook(() => {
     } catch (error) {
       console.error('Failed to cancel notifications:', error);
     }
-  }, []);
-
-  const pauseNotifications = useCallback(async (days: number = 7) => {
-    const pauseUntil = new Date();
-    pauseUntil.setDate(pauseUntil.getDate() + days);
-    
-    const newSettings: NotificationSettings = {
-      ...settings,
-      pausedUntil: pauseUntil.toISOString(),
-    };
-
-    await saveSettings(newSettings);
-    await cancelAllNotifications();
-    
-    console.log(`🔕 Notifications paused until ${pauseUntil.toLocaleString()}`);
-  }, [settings, cancelAllNotifications]);
-
-  const unpauseNotifications = useCallback(async () => {
-    const newSettings: NotificationSettings = {
-      ...settings,
-      pausedUntil: undefined,
-    };
-
-    await saveSettings(newSettings);
-    console.log('🔔 Notifications unpaused');
-  }, [settings]);
-
-  const isNotificationsPaused = useCallback((): boolean => {
-    if (!settings.pausedUntil) return false;
-    
-    const pausedUntil = new Date(settings.pausedUntil);
-    const now = new Date();
-    
-    if (now >= pausedUntil) {
-      // Auto-unpause if time has passed
-      unpauseNotifications();
-      return false;
-    }
-    
-    return true;
-  }, [settings.pausedUntil, unpauseNotifications]);
-
-  const canSendNotificationToday = useCallback((): boolean => {
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Reset counter if it's a new day
-    if (behavior.lastNotificationDate !== today) {
-      setBehavior(prev => ({
-        ...prev,
-        notificationsSentToday: 0,
-        lastNotificationDate: today,
-      }));
-      return true;
-    }
-    
-    const maxPerDay = settings.maxNotificationsPerDay || 3;
-    const canSend = behavior.notificationsSentToday < maxPerDay;
-    
-    if (!canSend) {
-      console.log(`⚠️ Daily notification limit reached (${maxPerDay})`);
-    }
-    
-    return canSend;
-  }, [behavior.notificationsSentToday, behavior.lastNotificationDate, settings.maxNotificationsPerDay]);
-
-  const incrementNotificationCount = useCallback(() => {
-    setBehavior(prev => {
-      const newBehavior = {
-        ...prev,
-        notificationsSentToday: prev.notificationsSentToday + 1,
-        lastNotificationDate: new Date().toISOString().split('T')[0],
-      };
-      
-      AsyncStorage.setItem(BEHAVIOR_STORAGE_KEY, JSON.stringify(newBehavior)).catch(err =>
-        console.error('Failed to save user behavior:', err)
-      );
-      
-      return newBehavior;
-    });
   }, []);
 
 
