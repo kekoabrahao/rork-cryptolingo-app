@@ -59,6 +59,9 @@ export interface ChallengeRequirement {
   afterTime?: string;
   categories?: string[];
   minAccuracy?: number;
+  lessons?: number;
+  perfectLessons?: number;
+  differentModules?: number;
 }
 
 export interface RapidFireQuestion {

@@ -94,74 +94,10 @@ export const [QuizContext, useQuiz] = createContextHook(() => {
   /**
    * Submits a quiz attempt and updates stats
    */
-  const submitQuizAttempt = useCallback(async (attempt: QuizAttempt) => {
-    // Calculate score
-    const correctAnswers = attempt.answers.filter(a => a.isCorrect).length;
-    const totalQuestions = attempt.answers.length;
-    const score = (correctAnswers / totalQuestions) * 100;
-    const perfectScore = correctAnswers === totalQuestions;
-
-    // Calculate XP earned
-    let xpEarned = 0;
-    if (perfectScore) {
-      xpEarned = QUIZ_XP_REWARDS.PERFECT_SCORE;
-    } else if (correctAnswers === 2) {
-      xpEarned = QUIZ_XP_REWARDS.TWO_CORRECT;
-    } else if (correctAnswers === 1) {
-      xpEarned = QUIZ_XP_REWARDS.ONE_CORRECT;
-    }
-
-    // Add streak bonus
-    const newStreak = perfectScore ? stats.currentStreak + 1 : 0;
-    if (newStreak > 0 && newStreak % 5 === 0) {
-      xpEarned += QUIZ_XP_REWARDS.STREAK_BONUS;
-    }
-
-    // Update attempt with calculated values
-    const completedAttempt: QuizAttempt = {
-      ...attempt,
-      score,
-      perfectScore,
-      xpEarned,
-    };
-
-    // Update stats
-    const newStats: QuizStats = {
-      ...stats,
-      totalQuizzes: stats.totalQuizzes + 1,
-      totalAttempts: stats.totalAttempts + 1,
-      perfectScores: stats.perfectScores + (perfectScore ? 1 : 0),
-      averageScore: ((stats.averageScore * stats.totalAttempts) + score) / (stats.totalAttempts + 1),
-      totalXpEarned: stats.totalXpEarned + xpEarned,
-      currentStreak: newStreak,
-      longestStreak: Math.max(stats.longestStreak, newStreak),
-      accuracy: ((stats.accuracy * stats.totalAttempts) + (correctAnswers / totalQuestions) * 100) / (stats.totalAttempts + 1),
-      categoryAccuracy: stats.categoryAccuracy, // Would update per category
-    };
-
-    // Save data
-    await saveStats(newStats);
-    await saveAttempts([...attempts, completedAttempt]);
-
-    // Check for new badges
-    await checkAndUnlockBadges(newStats);
-
-    // Track analytics
-    analytics.trackQuizCompleted(attempt.newsId, score, xpEarned, perfectScore);
-
-    console.log(`✅ Quiz completed: ${correctAnswers}/${totalQuestions} correct, +${xpEarned} XP`);
-    
-    return completedAttempt;
-  }, [stats, attempts]);
-
-  /**
-   * Checks if user has unlocked any new badges
-   */
   const checkAndUnlockBadges = useCallback(async (currentStats: QuizStats) => {
     const newBadges: QuizBadge[] = [];
 
     for (const badgeTemplate of QUIZ_BADGES) {
-      // Skip if already unlocked
       if (badges.some(b => b.id === badgeTemplate.id)) continue;
 
       let shouldUnlock = false;
@@ -177,7 +113,6 @@ export const [QuizContext, useQuiz] = createContextHook(() => {
           shouldUnlock = currentStats.accuracy >= 95 && currentStats.totalQuizzes >= badgeTemplate.requirement;
           break;
         case 'speed':
-          // Count fast attempts (< 30 seconds)
           const fastAttempts = attempts.filter(a => a.timeSpent < 30).length;
           shouldUnlock = fastAttempts >= badgeTemplate.requirement;
           break;
@@ -197,18 +132,69 @@ export const [QuizContext, useQuiz] = createContextHook(() => {
       const updatedBadges = [...badges, ...newBadges];
       await saveBadges(updatedBadges);
       
-      // Track badge unlock
       newBadges.forEach(badge => {
-        analytics.trackAchievementUnlocked(badge.id, badge.name);
+        analytics.trackAchievementUnlocked(badge.id, badge.name, 'bronze', 1);
       });
     }
 
     return newBadges;
   }, [badges, attempts]);
 
-  /**
-   * Gets quiz attempts for a specific news article
-   */
+  const submitQuizAttempt = useCallback(async (attempt: QuizAttempt) => {
+    const correctAnswers = attempt.answers.filter(a => a.isCorrect).length;
+    const totalQuestions = attempt.answers.length;
+    const score = (correctAnswers / totalQuestions) * 100;
+    const perfectScore = correctAnswers === totalQuestions;
+
+    let xpEarned = 0;
+    if (perfectScore) {
+      xpEarned = QUIZ_XP_REWARDS.PERFECT_SCORE;
+    } else if (correctAnswers === 2) {
+      xpEarned = QUIZ_XP_REWARDS.TWO_CORRECT;
+    } else if (correctAnswers === 1) {
+      xpEarned = QUIZ_XP_REWARDS.ONE_CORRECT;
+    }
+
+    const newStreak = perfectScore ? stats.currentStreak + 1 : 0;
+    if (newStreak > 0 && newStreak % 5 === 0) {
+      xpEarned += QUIZ_XP_REWARDS.STREAK_BONUS;
+    }
+
+    const completedAttempt: QuizAttempt = {
+      ...attempt,
+      score,
+      perfectScore,
+      xpEarned,
+    };
+
+    const newStats: QuizStats = {
+      ...stats,
+      totalQuizzes: stats.totalQuizzes + 1,
+      totalAttempts: stats.totalAttempts + 1,
+      perfectScores: stats.perfectScores + (perfectScore ? 1 : 0),
+      averageScore: ((stats.averageScore * stats.totalAttempts) + score) / (stats.totalAttempts + 1),
+      totalXpEarned: stats.totalXpEarned + xpEarned,
+      currentStreak: newStreak,
+      longestStreak: Math.max(stats.longestStreak, newStreak),
+      accuracy: ((stats.accuracy * stats.totalAttempts) + (correctAnswers / totalQuestions) * 100) / (stats.totalAttempts + 1),
+      categoryAccuracy: stats.categoryAccuracy,
+    };
+
+    await saveStats(newStats);
+    await saveAttempts([...attempts, completedAttempt]);
+
+    const newBadges = await checkAndUnlockBadges(newStats);
+    if (newBadges.length > 0) {
+      console.log(`🏆 Unlocked ${newBadges.length} new badge(s)!`);
+    }
+
+    analytics.trackQuizCompleted(attempt.newsId, score, xpEarned, perfectScore);
+
+    console.log(`✅ Quiz completed: ${correctAnswers}/${totalQuestions} correct, +${xpEarned} XP`);
+    
+    return completedAttempt;
+  }, [stats, attempts, checkAndUnlockBadges]);
+
   const getAttemptsForNews = useCallback((newsId: string): QuizAttempt[] => {
     return attempts.filter(a => a.newsId === newsId);
   }, [attempts]);

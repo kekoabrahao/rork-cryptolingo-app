@@ -7,10 +7,9 @@ import {
   PurchaseRequest, 
   PurchaseResponse,
   RestorePurchaseRequest,
-  PREMIUM_STORAGE_KEY,
-  PREMIUM_PRICE
+  PREMIUM_STORAGE_KEY
 } from '@/types/premium';
-import { Analytics } from '@/utils/analytics';
+import { analytics } from '@/utils/analytics';
 
 interface PremiumContextType {
   isPremium: boolean;
@@ -21,6 +20,7 @@ interface PremiumContextType {
   checkPremiumStatus: () => Promise<void>;
   showUpgradeModal: () => void;
   hideUpgradeModal: () => void;
+  closeUpgradeModal: () => void;
   isUpgradeModalVisible: boolean;
   featureLockReason?: string;
 }
@@ -36,6 +36,25 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Load premium status from storage on mount
   useEffect(() => {
+    const loadPremiumStatus = async () => {
+      try {
+        setIsLoading(true);
+        const storedStatus = await AsyncStorage.getItem(PREMIUM_STORAGE_KEY);
+        
+        if (storedStatus) {
+          const status: PremiumStatus = JSON.parse(storedStatus);
+          setPremiumStatus(status);
+          setIsPremium(status.isPremium);
+          
+          validateWithBackend(status);
+        }
+      } catch (error) {
+        console.error('Failed to load premium status:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
     loadPremiumStatus();
   }, []);
 
@@ -49,12 +68,10 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
         setPremiumStatus(status);
         setIsPremium(status.isPremium);
         
-        // Validate with backend (silent background check)
         validateWithBackend(status);
       }
     } catch (error) {
       console.error('Failed to load premium status:', error);
-      Analytics.trackError('premium_status_load_failed', error as Error);
     } finally {
       setIsLoading(false);
     }
@@ -79,12 +96,10 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
         await AsyncStorage.removeItem(PREMIUM_STORAGE_KEY);
         setIsPremium(false);
         setPremiumStatus(null);
-        Analytics.track('premium_status_invalidated', { reason: data.reason });
+        analytics.track('premium_status_invalidated', { reason: data.reason });
       }
     } catch (error) {
       console.error('Backend validation failed:', error);
-      // Don't remove local status on network errors - just log
-      Analytics.trackError('premium_validation_failed', error as Error);
     }
   };
 
@@ -94,7 +109,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const purchasePremium = async (request: PurchaseRequest): Promise<PurchaseResponse> => {
     try {
-      Analytics.track('purchase_initiated', {
+      analytics.track('purchase_initiated', {
         payment_method: request.paymentMethod,
         payment_gateway: request.paymentGateway,
         amount: request.amount,
@@ -121,8 +136,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
 
-        // Track successful purchase
-        Analytics.track('purchase_completed', {
+        analytics.track('purchase_completed', {
           transaction_id: data.premiumStatus.transactionId,
           payment_method: request.paymentMethod,
           payment_gateway: request.paymentGateway,
@@ -139,8 +153,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
         // Hide upgrade modal
         setIsUpgradeModalVisible(false);
       } else {
-        // Track failed purchase
-        Analytics.track('purchase_failed', {
+        analytics.track('purchase_failed', {
           payment_method: request.paymentMethod,
           error: data.error || 'Unknown error'
         });
@@ -155,7 +168,6 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
       return data;
     } catch (error) {
       console.error('Purchase error:', error);
-      Analytics.trackError('purchase_error', error as Error);
       
       Alert.alert(
         'Connection Error',
@@ -172,7 +184,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const restorePurchase = async (request: RestorePurchaseRequest): Promise<boolean> => {
     try {
-      Analytics.track('restore_purchase_initiated', { email: request.email });
+      analytics.track('restore_purchase_initiated', { email: request.email });
 
       // TODO: Replace with actual backend endpoint
       const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/premium/restore`, {
@@ -194,7 +206,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
 
-        Analytics.track('restore_purchase_success', {
+        analytics.track('restore_purchase_success', {
           transaction_id: data.premiumStatus.transactionId
         });
 
@@ -206,7 +218,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         return true;
       } else {
-        Analytics.track('restore_purchase_failed', { error: data.error });
+        analytics.track('restore_purchase_failed', { error: data.error });
         
         Alert.alert(
           'Restore Failed',
@@ -218,7 +230,6 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
     } catch (error) {
       console.error('Restore purchase error:', error);
-      Analytics.trackError('restore_purchase_error', error as Error);
       
       Alert.alert(
         'Connection Error',
@@ -233,14 +244,16 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
   const showUpgradeModal = (reason?: string) => {
     setFeatureLockReason(reason);
     setIsUpgradeModalVisible(true);
-    Analytics.track('upgrade_modal_shown', { reason });
+    analytics.track('upgrade_modal_shown', { reason });
   };
 
   const hideUpgradeModal = () => {
     setIsUpgradeModalVisible(false);
     setFeatureLockReason(undefined);
-    Analytics.track('upgrade_modal_dismissed');
+    analytics.track('upgrade_modal_dismissed');
   };
+
+  const closeUpgradeModal = hideUpgradeModal;
 
   return (
     <PremiumContext.Provider
@@ -253,6 +266,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
         checkPremiumStatus,
         showUpgradeModal,
         hideUpgradeModal,
+        closeUpgradeModal,
         isUpgradeModalVisible,
         featureLockReason
       }}
