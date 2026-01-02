@@ -17,7 +17,7 @@ import { ChallengeProvider } from "@/contexts/ChallengeContext";
 import { AchievementUnlockProvider, useAchievementUnlock } from "@/contexts/AchievementUnlockContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 import { analytics } from "@/utils/analytics";
-import { configureRevenueCat } from "@/lib/revenuecat";
+import { configureRevenueCat, logInUser } from "@/lib/revenuecat";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -38,8 +38,8 @@ function RootLayoutNav() {
   useEffect(() => {
     if (isAuthenticated && user && !revenueCatConfigured.current) {
       revenueCatConfigured.current = true;
-      configureRevenueCat(user.id).catch((error) => {
-        console.error('Failed to configure RevenueCat:', error);
+      logInUser(user.id).catch((error) => {
+        console.error('Failed to log in to RevenueCat:', error);
         revenueCatConfigured.current = false;
       });
     }
@@ -80,6 +80,10 @@ export default function RootLayout() {
     SplashScreen.hideAsync();
     analytics.initialize();
     analytics.trackAppOpened(false);
+    
+    configureRevenueCat().catch((error) => {
+      console.error('Failed to configure RevenueCat:', error);
+    });
   }, []);
 
   useEffect(() => {
