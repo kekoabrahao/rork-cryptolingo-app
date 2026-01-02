@@ -17,32 +17,6 @@ export interface NewsQuiz {
   coinBonus: number;
 }
 
-export interface NewsItem {
-  id: string;
-  title: string;
-  summary: string;
-  content: string;
-  source: NewsSource;
-  category: NewsCategory;
-  urgency: NewsUrgency;
-  impact: NewsImpact;
-  impactScore: number;
-  relatedCryptos: string[];
-  publishedAt: Date;
-  imageUrl: string;
-  readTime: number;
-  difficulty: NewsDifficulty;
-  keyTerms: string[];
-  relatedLessons: string[];
-  xpReward: number;
-  coinReward: number;
-  quiz?: NewsQuiz;
-  comments: number;
-  likes: number;
-  shares: number;
-  userReaction?: UserReaction | null;
-}
-
 export interface NewsArticle {
   id: string;
   title: string;

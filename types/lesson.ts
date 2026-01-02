@@ -49,7 +49,6 @@ export interface UserProgress {
   bestCombo: number;
   xpMultiplier: number;
   powerUps: PowerUp[];
-  email?: string;
 }
 
 export interface AchievementProgress {

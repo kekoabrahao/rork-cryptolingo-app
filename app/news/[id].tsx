@@ -1106,6 +1106,21 @@ const styles = StyleSheet.create({
     color: Colors.text,
     lineHeight: 22,
   },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FF6B35' + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  streakBadgeText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#FF6B35',
+  },
   quizPromptSection: {
     paddingHorizontal: 20,
     paddingTop: 32,
@@ -1161,7 +1176,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
   },
-  streakBadgeText: {
+  streakText: {
     fontSize: 13,
     fontWeight: '600' as const,
     color: Colors.warning,
@@ -1184,7 +1199,7 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: Colors.success,
   },
-  quizCompletedMessage: {
+  quizCompletedText: {
     fontSize: 14,
     color: Colors.textSecondary,
     textAlign: 'center',

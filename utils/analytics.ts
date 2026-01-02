@@ -28,16 +28,6 @@ type AnalyticsEvent =
   | 'paywall_converted'
   | 'premium_feature_attempted'
   | 'ad_shown'
-  | 'purchase_initiated'
-  | 'purchase_completed'
-  | 'purchase_failed'
-  | 'purchase_error'
-  | 'restore_purchase_initiated'
-  | 'restore_purchase_success'
-  | 'restore_purchase_failed'
-  | 'premium_status_invalidated'
-  | 'upgrade_modal_shown'
-  | 'upgrade_modal_dismissed'
   | 'ad_clicked'
   | 'ad_closed'
   | 'quiz_started'
@@ -296,14 +286,6 @@ class Analytics {
     return 'regular';
   }
 
-  trackError(message: string, error?: Error) {
-    const stack = error?.stack;
-    this.track('storage_read_error', {
-      error_message: message,
-      stack_trace: stack,
-    });
-  }
-
   trackDataValidationError(
     fieldName: string,
     invalidValue: unknown,
@@ -398,4 +380,3 @@ class Analytics {
 }
 
 export const analytics = new Analytics();
-export { Analytics };

@@ -13,19 +13,14 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { X, Check, Crown, Sparkles, Zap } from 'lucide-react-native';
 import { usePremium } from '@/contexts/PremiumContext';
-import { PREMIUM_PRICE, PREMIUM_FEATURES } from '@/types/premium';
+import { PREMIUM_PRICE, PREMIUM_FEATURES, PREMIUM_TESTIMONIALS } from '@/types/premium';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-interface UpgradeModalProps {
-  visible: boolean;
-  onClose: () => void;
-}
-
-export default function UpgradeModal({ visible, onClose }: UpgradeModalProps) {
-  const { purchasePremium } = usePremium();
+export default function UpgradeModal() {
+  const { showUpgradeModal, closeUpgradeModal, purchasePremium } = usePremium();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handlePurchase = async () => {
@@ -46,7 +41,8 @@ export default function UpgradeModal({ visible, onClose }: UpgradeModalProps) {
       });
 
       if (result.success) {
-        onClose();
+        // Success animation here
+        closeUpgradeModal();
       }
     } finally {
       setIsProcessing(false);
@@ -54,10 +50,10 @@ export default function UpgradeModal({ visible, onClose }: UpgradeModalProps) {
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={showUpgradeModal} animationType="slide" transparent>
       <View style={styles.overlay}>
         <View style={styles.container}>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <TouchableOpacity style={styles.closeButton} onPress={closeUpgradeModal}>
             <X size={24} color={Colors.text} />
           </TouchableOpacity>
 

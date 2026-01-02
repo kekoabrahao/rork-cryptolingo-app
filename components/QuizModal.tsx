@@ -13,12 +13,12 @@ import {
 import { BlurView } from 'expo-blur';
 import { CheckCircle, XCircle, Trophy, Zap, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { NewsQuiz, QuizAnswer } from '@/types/quiz';
+import { NewsQuiz, QuizQuestion, QuizAnswer } from '@/types/quiz';
 import { useQuiz } from '@/contexts/QuizContext';
 import { useUserProgress } from '@/contexts/UserProgressContext';
 import Colors from '@/constants/colors';
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface QuizModalProps {
   visible: boolean;
@@ -30,7 +30,7 @@ interface QuizModalProps {
 
 export default function QuizModal({ visible, quiz, newsId, onClose, onComplete }: QuizModalProps) {
   const { submitQuizAttempt } = useQuiz();
-  useUserProgress();
+  const { addXP } = useUserProgress();
   
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<QuizAnswer[]>([]);
@@ -50,6 +50,7 @@ export default function QuizModal({ visible, quiz, newsId, onClose, onComplete }
 
   useEffect(() => {
     if (visible) {
+      // Slide up animation
       Animated.parallel([
         Animated.spring(slideAnim, {
           toValue: 0,
@@ -68,11 +69,12 @@ export default function QuizModal({ visible, quiz, newsId, onClose, onComplete }
         }),
       ]).start();
     } else {
+      // Reset animations
       slideAnim.setValue(height);
       fadeAnim.setValue(0);
       scaleAnim.setValue(0.9);
     }
-  }, [visible, slideAnim, fadeAnim, scaleAnim]);
+  }, [visible]);
 
   const handleAnswerSelect = async (optionId: string, isCorrect: boolean) => {
     if (showFeedback) return; // Prevent multiple selections
@@ -128,16 +130,20 @@ export default function QuizModal({ visible, quiz, newsId, onClose, onComplete }
       quizId: quiz.id,
       newsId,
       answers: allAnswers,
-      score: 0,
-      perfectScore: false,
-      xpEarned: 0,
+      score: 0, // Will be calculated in context
+      perfectScore: false, // Will be calculated in context
+      xpEarned: 0, // Will be calculated in context
       timeSpent: totalTimeSpent,
       completedAt: new Date().toISOString(),
     });
 
+    // Add XP to user progress
+    addXP(attempt.xpEarned);
+
     setIsComplete(true);
     onComplete(attempt.xpEarned);
 
+    // Show completion screen for 3 seconds, then close
     setTimeout(() => {
       handleClose();
     }, 3000);

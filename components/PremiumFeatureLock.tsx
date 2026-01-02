@@ -29,7 +29,7 @@ export const PremiumFeatureLock: React.FC<PremiumFeatureLockProps> = ({
     return (
       <TouchableOpacity 
         style={styles.compactLock}
-        onPress={() => showUpgradeModal()}
+        onPress={() => showUpgradeModal(feature)}
         activeOpacity={0.8}
       >
         <LinearGradient
@@ -55,7 +55,7 @@ export const PremiumFeatureLock: React.FC<PremiumFeatureLockProps> = ({
       {/* Lock overlay */}
       <TouchableOpacity 
         style={styles.overlay}
-        onPress={() => showUpgradeModal()}
+        onPress={() => showUpgradeModal(feature)}
         activeOpacity={0.95}
       >
         <LinearGradient

@@ -13,22 +13,7 @@ export interface PremiumStatus {
   paymentGateway?: PaymentGateway;
   amount?: number;
   currency: 'BRL' | 'USD';
-  expiresAt?: never;
-  userId?: string;
-}
-
-export interface PurchaseRequest {
-  userId: string;
-  email: string;
-  paymentMethod: PaymentMethod;
-  paymentGateway: PaymentGateway;
-  amount: number;
-  currency: string;
-  metadata?: {
-    appVersion: string;
-    platform: string;
-    referralCode?: string;
-  };
+  expiresAt?: never; // Lifetime = never expires
 }
 
 export interface PremiumFeature {
@@ -319,5 +304,3 @@ export const STORAGE_KEYS = {
   UPGRADE_PROMPT_HISTORY: '@cryptolingo_upgrade_prompts',
   REFERRAL_CODE: '@cryptolingo_referral_code',
 };
-
-export const PREMIUM_STORAGE_KEY = STORAGE_KEYS.PREMIUM_STATUS;
