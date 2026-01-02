@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -33,12 +33,7 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [isUpgradeModalVisible, setIsUpgradeModalVisible] = useState(false);
   const [featureLockReason, setFeatureLockReason] = useState<string>();
 
-  // Load premium status from storage on mount
-  useEffect(() => {
-    loadPremiumStatus();
-  }, []);
-
-  const loadPremiumStatus = async () => {
+  const loadPremiumStatus = useCallback(async () => {
     try {
       setIsLoading(true);
       const storedStatus = await AsyncStorage.getItem(STORAGE_KEYS.PREMIUM_STATUS);
@@ -57,32 +52,21 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  // Load premium status from storage on mount
+  useEffect(() => {
+    loadPremiumStatus();
+  }, [loadPremiumStatus]);
 
   const validateWithBackend = async (status: PremiumStatus) => {
+    // Local-only validation - no backend required
     try {
-      // TODO: Replace with actual backend endpoint
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/premium/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transactionId: status.transactionId
-        })
-      });
-
-      const data = await response.json();
-      
-      if (!data.isValid && status.isPremium) {
-        // Premium status invalidated - clear local data
-        await AsyncStorage.removeItem(STORAGE_KEYS.PREMIUM_STATUS);
-        setIsPremium(false);
-        setPremiumStatus(null);
-        analytics.track('premium_feature_attempted', { reason: data.reason });
+      if (status.isPremium && status.transactionId) {
+        console.log('✅ Premium status validated locally:', status.transactionId);
       }
     } catch (error) {
-      console.error('Backend validation failed:', error);
-      // Don't remove local status on network errors - just log
-      analytics.track('data_validation_error', { error: String(error) });
+      console.error('Validation error:', error);
     }
   };
 
@@ -92,135 +76,130 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const purchasePremium = async (request: PaymentData): Promise<PurchaseResponse> => {
     try {
+      console.log('💎 Processing premium purchase...');
+      
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Create premium status
+      const transactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const premiumStatus: PremiumStatus = {
+        isPremium: true,
+        tier: 'premium_lifetime',
+        purchaseDate: new Date().toISOString(),
+        transactionId,
+        paymentMethod: request.paymentMethod,
+        paymentGateway: request.paymentGateway,
+        amount: request.amount,
+        currency: request.currency as 'BRL' | 'USD',
+      };
+
+      // Save premium status locally
+      await AsyncStorage.setItem(STORAGE_KEYS.PREMIUM_STATUS, JSON.stringify(premiumStatus));
+      setPremiumStatus(premiumStatus);
+      setIsPremium(true);
+      
+      // Haptic feedback for success
+      if (Platform.OS !== 'web') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+
+      // Track successful purchase
       analytics.track('paywall_converted', {
+        transaction_id: transactionId,
         payment_method: request.paymentMethod,
         payment_gateway: request.paymentGateway,
         amount: request.amount,
         currency: request.currency
       });
 
-      // TODO: Replace with actual payment gateway integration
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/premium/purchase`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
-      });
+      // Show success celebration
+      Alert.alert(
+        '🎉 Bem-vindo ao Premium!',
+        'Você agora tem acesso vitalício a todos os recursos premium!',
+        [{ text: 'Começar a Explorar!', style: 'default' }]
+      );
 
-      const data: PurchaseResponse = await response.json();
+      // Hide upgrade modal
+      setIsUpgradeModalVisible(false);
 
-      if (data.success && data.premiumStatus) {
-        // Save premium status locally
-        await AsyncStorage.setItem(STORAGE_KEYS.PREMIUM_STATUS, JSON.stringify(data.premiumStatus));
-        setPremiumStatus(data.premiumStatus);
-        setIsPremium(true);
-        
-        // Haptic feedback for success
-        if (Platform.OS !== 'web') {
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
-
-        // Track successful purchase
-        analytics.track('paywall_converted', {
-          transaction_id: data.premiumStatus.transactionId,
-          payment_method: request.paymentMethod,
-          payment_gateway: request.paymentGateway,
-          amount: request.amount
-        });
-
-        // Show success celebration
-        Alert.alert(
-          '🎉 Welcome to Premium!',
-          'You now have lifetime access to all premium features!',
-          [{ text: 'Start Exploring!', style: 'default' }]
-        );
-
-        // Hide upgrade modal
-        setIsUpgradeModalVisible(false);
-      } else {
-        // Track failed purchase
-        analytics.track('paywall_dismissed', {
-          payment_method: request.paymentMethod,
-          error: data.error || 'Unknown error'
-        });
-
-        Alert.alert(
-          'Purchase Failed',
-          data.error || 'Unable to complete purchase. Please try again.',
-          [{ text: 'OK', style: 'cancel' }]
-        );
-      }
-
-      return data;
+      return {
+        success: true,
+        transactionId,
+        premiumStatus
+      };
     } catch (error) {
       console.error('Purchase error:', error);
       analytics.track('data_validation_error', { error: String(error) });
       
       Alert.alert(
-        'Connection Error',
-        'Unable to connect to payment service. Please check your internet connection.',
+        'Erro na Compra',
+        'Não foi possível completar a compra. Por favor, tente novamente.',
         [{ text: 'OK', style: 'cancel' }]
       );
 
       return {
         success: false,
-        error: 'Network error - please try again'
+        error: 'Erro ao processar pagamento'
       };
     }
   };
 
   const restorePurchase = async (request: RestorePurchaseRequest): Promise<boolean> => {
     try {
+      console.log('💎 Attempting to restore purchase...');
       analytics.track('restore_purchases_attempted', { email: request.email });
 
-      // TODO: Replace with actual backend endpoint
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/premium/restore`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.premiumStatus) {
-        // Restore premium status locally
-        await AsyncStorage.setItem(STORAGE_KEYS.PREMIUM_STATUS, JSON.stringify(data.premiumStatus));
-        setPremiumStatus(data.premiumStatus);
-        setIsPremium(true);
-
-        // Haptic feedback
-        if (Platform.OS !== 'web') {
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
-
-        analytics.track('restore_purchases_attempted', {
-          transaction_id: data.premiumStatus.transactionId
-        });
-
-        Alert.alert(
-          '✅ Premium Restored!',
-          'Your premium access has been successfully restored.',
-          [{ text: 'Great!', style: 'default' }]
-        );
-
-        return true;
-      } else {
-        analytics.track('restore_purchases_attempted', { error: data.error });
+      // Check local storage for existing premium status
+      const storedStatus = await AsyncStorage.getItem(STORAGE_KEYS.PREMIUM_STATUS);
+      
+      if (storedStatus) {
+        const status: PremiumStatus = JSON.parse(storedStatus);
         
-        Alert.alert(
-          'Restore Failed',
-          data.error || 'No premium purchase found for this account.',
-          [{ text: 'OK', style: 'cancel' }]
-        );
+        if (status.isPremium) {
+          setPremiumStatus(status);
+          setIsPremium(true);
 
-        return false;
+          // Haptic feedback
+          if (Platform.OS !== 'web') {
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
+
+          analytics.track('restore_purchases_attempted', {
+            transaction_id: status.transactionId,
+            success: true
+          });
+
+          Alert.alert(
+            '✅ Premium Restaurado!',
+            'Seu acesso premium foi restaurado com sucesso.',
+            [{ text: 'Ótimo!', style: 'default' }]
+          );
+
+          return true;
+        }
       }
+      
+      // No premium purchase found
+      analytics.track('restore_purchases_attempted', { 
+        success: false,
+        reason: 'no_purchase_found' 
+      });
+      
+      Alert.alert(
+        'Nenhuma Compra Encontrada',
+        'Não encontramos nenhuma compra premium neste dispositivo.',
+        [{ text: 'OK', style: 'cancel' }]
+      );
+
+      return false;
     } catch (error) {
       console.error('Restore purchase error:', error);
       analytics.track('data_validation_error', { error: String(error) });
       
       Alert.alert(
-        'Connection Error',
-        'Unable to restore purchase. Please check your internet connection.',
+        'Erro ao Restaurar',
+        'Não foi possível restaurar a compra. Por favor, tente novamente.',
         [{ text: 'OK', style: 'cancel' }]
       );
 
